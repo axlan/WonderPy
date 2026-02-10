@@ -1,7 +1,7 @@
 import time
-import sys
 
 import queue
+from typing import Optional
 
 from WonderPy.core.wwConstants import WWRobotConstants
 from WonderPy.core.wwCommands import WWCommands
@@ -34,8 +34,7 @@ class WWRobot:
         self._sensors           = WWSensors (self)
         self._commands          = WWCommands(self)
 
-        self._sensor_packet_1 = None
-        self._sensor_packet_2 = None
+        self._sensor_packet_1 = Optional[bytes]
 
         rt = WWRobotConstants.RobotType
         self._expect_sensor_packet_2 = self.robot_type in {rt.WW_ROBOT_DASH, rt.WW_ROBOT_CUE}
@@ -128,7 +127,9 @@ class WWRobot:
             return
 
         self._mode       = manuData[0] & 0x03
-        self._robot_type = WWRobot.robot_type_from_manufacturer_data(manuData)
+        # HACK: Just forcing to type Dash for now since not sure why it's not matching expected values
+        self._robot_type = WWRobotConstants.RobotType.WW_ROBOT_DASH
+        # self._robot_type = WWRobot.robot_type_from_manufacturer_data(manuData)
 
     @staticmethod
     def robot_type_from_manufacturer_data(manu_data):

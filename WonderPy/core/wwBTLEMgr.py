@@ -3,12 +3,12 @@ import uuid
 import sys
 import argparse
 import asyncio
-import queue
 
 from bleak import BleakScanner, BleakClient
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
 
+from .packet_data_converter import dot_sensor_decode, dash_sensor_decode
 from .wwRobot import WWRobot
 from .wwConstants import WWRobotConstants
 from WonderPy.core import wwMain
@@ -54,9 +54,9 @@ class WWBTLEManager:
 
         self.delegate = delegate
 
-        self.robot = None
+        self.robot:Optional[WWRobot] = None
 
-        self._sensor_queue = queue.Queue()
+        self._sensor_queue = asyncio.Queue()
 
         self.client: Optional[BleakClient] = None
         self.loop = None
@@ -236,33 +236,19 @@ class WWBTLEManager:
 
         # Setup notification callbacks
         def on_data_sensor0(sender, data):
-            self.robot._sensor_packet_1 = data
+            assert self.robot is not None
             if not self.robot.expect_sensor_packet_2:
-                p1 = self.robot._sensor_packet_1
-                # pw = WWBTLEManager.two_packet_wrappers()
-                # WWBTLEManager.string_into_c_byte_array(self.robot._sensor_packet_1.decode('latin1') if isinstance(self.robot._sensor_packet_1, bytes) else self.robot._sensor_packet_1, pw.packet1_bytes)
-                # pw.packet1_bytes_num = len(p1)
-                # pw.packet2_bytes_num = 0
-                # json_string = self.libHAL.packets2Json(pw)
-                # self._sensor_queue.put(json.loads(json_string))
-                # self.robot._sensor_packet_1 = None
+                self._sensor_queue.put(dot_sensor_decode(data))
+            else:
+                self.robot._sensor_packet_1 = data
 
         def on_data_sensor1(sender, data):
-            self.robot._sensor_packet_2 = data
+            assert self.robot is not None
             if self.robot._sensor_packet_1 is not None:
-                p1 = self.robot._sensor_packet_1
-                p2 = self.robot._sensor_packet_2
-                # pw = WWBTLEManager.two_packet_wrappers()
-                # p1_str = p1.decode('latin1') if isinstance(p1, bytes) else p1
-                # p2_str = p2.decode('latin1') if isinstance(p2, bytes) else p2
-                # WWBTLEManager.string_into_c_byte_array(p1_str, pw.packet1_bytes)
-                # pw.packet1_bytes_num = len(p1)
-                # WWBTLEManager.string_into_c_byte_array(p2_str, pw.packet2_bytes)
-                # pw.packet2_bytes_num = len(p2)
-                # json_string = self.libHAL.packets2Json(pw)
-                # self._sensor_queue.put(json.loads(json_string))
-                # self.robot._sensor_packet_1 = None
-                # self.robot._sensor_packet_2 = None
+                sensor_data = dot_sensor_decode(self.robot._sensor_packet_1)
+                sensor_data.update(dash_sensor_decode(data))
+                self._sensor_queue.put(sensor_data)
+                self.robot._sensor_packet_1 = None
 
         # Start notifications
         await self.client.start_notify(CHAR_UUID_SENSOR0, on_data_sensor0)
@@ -279,7 +265,7 @@ class WWBTLEManager:
         try:
             while True:
                 # blocks until there's something in the queue
-                jsonDict = self._sensor_queue.get()
+                jsonDict = await self._sensor_queue.get()
                 self.robot._parse_sensors(jsonDict)
 
                 if hasattr(self.delegate, 'on_sensors') and callable(getattr(self.delegate, 'on_sensors')):
@@ -289,6 +275,10 @@ class WWBTLEManager:
 
                 # actually send the commands which have queued up via stage_foo()
                 self.robot.send_staged()
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            sys.stdout.write('Stopping...\n')
+            sys.stdout.flush()
+    
         finally:
             await self.client.stop_notify(CHAR_UUID_SENSOR0)
             if self.robot.expect_sensor_packet_2:
