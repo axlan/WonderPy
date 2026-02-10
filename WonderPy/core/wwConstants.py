@@ -1,4 +1,4 @@
-class WWRobotConstants(object):
+class WWRobotConstants:
 
     class RobotType:
         WW_ROBOT_UNKNOWN  = 1000
@@ -9,7 +9,7 @@ class WWRobotConstants(object):
         WW_ROBOT_DOT_DFU  = 2002
         WW_ROBOT_CUE_DFU  = 2003
 
-    class RobotProperties(object):
+    class RobotProperties:
         EYE_LED_COUNT     = 12
 
     RobotTypeNames = {
@@ -22,13 +22,13 @@ class WWRobotConstants(object):
         RobotType.WW_ROBOT_CUE_DFU : "WW_ROBOT_CUE_DFU",
     }
 
-    class RobotMode(object):
+    class RobotMode:
         ROBOT_MODE_UNKNOWN = 0x0
         ROBOT_MODE_BL      = 0x1
         ROBOT_MODE_DIAG    = 0x2
         ROBOT_MODE_APP     = 0x3
 
-    class RobotComponent(object):
+    class RobotComponent:
         WW_COMMAND_POWER                      =    '1'
         WW_COMMAND_EYE_RING                   =  '100'
         WW_COMMAND_LIGHT_RGB_EYE              =  '101'
@@ -140,7 +140,7 @@ class WWRobotConstants(object):
             WW_SENSOR_TIMESTAMP                   : 'WW_SENSOR_TIMESTAMP',
         }
 
-    class RobotComponentValues(object):
+    class RobotComponentValues:
         WW_COMMAND_VALUE_1                               = "1"
         WW_COMMAND_VALUE_2                               = "2"
         WW_COMMAND_VALUE_3                               = "3"

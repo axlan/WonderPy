@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import uuid
 import ctypes
 import json
@@ -15,10 +13,7 @@ except ImportError:
     raise
 
 
-if sys.version_info > (3, 0):
-    import queue
-else:
-    import Queue as queue
+import queue
 
 from .wwRobot import WWRobot
 from .wwConstants import WWRobotConstants
@@ -47,7 +42,7 @@ CHAR_UUID_SENSOR1      = uuid.UUID('AF230006-879D-6186-1F49-DECA0E85D9C1')   # s
 CONNECTION_INTERVAL_MS  = 12
 
 
-class WWBTLEManager(object):
+class WWBTLEManager:
 
     def __init__(self, delegate, arguments=None):
 
@@ -132,7 +127,7 @@ class WWBTLEManager(object):
         filter_names = "(any)"
         if self._args.connect_name is not None:
             filter_names = ', '.join(self._args.connect_name)
-        print('Searching for robot types: %s with names: %s.' % (filter_types, filter_names))
+        print('Searching for robot types: {} with names: {}.'.format(filter_types, filter_names))
         try:
             self.adapter.start_scan()
             # Search for the first WW device found (will time out after 60 seconds
@@ -206,7 +201,7 @@ class WWBTLEManager(object):
             delim = ""
             for d in devices_no:
                 r = WWRobot(d)
-                sys.stdout.write("%s%s '%s'" % (delim, r.robot_type_name, r.name))
+                sys.stdout.write("{}{} '{}'".format(delim, r.robot_type_name, r.name))
                 delim = ', '
             sys.stdout.write('.\n')
 
@@ -235,7 +230,7 @@ class WWBTLEManager(object):
                     r = WWRobot(d)
                     n = len(map) + 1
                     map[str(n)] = d
-                    icon = u'📶' if d == loudest_device else u'⏹'
+                    icon = '📶' if d == loudest_device else '⏹'
                     print("%2d. %s %14s '%s'" % (n, icon, r.robot_type_name, r.name))
 
                 device = None

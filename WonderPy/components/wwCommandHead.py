@@ -13,7 +13,7 @@ class WWCommandHead(WWCommandBase):
     _TIME_VOLTAGE = 0.6
 
     def __init__(self, robot):
-        super(WWCommandHead, self).__init__(robot)
+        super().__init__(robot)
 
     def stage_pan_angle(self, pan_degrees):
         self._robot.stage_cmds(self.compose_angle(_rc.WW_COMMAND_HEAD_POSITION_PAN ,

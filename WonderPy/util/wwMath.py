@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import math
 
 
@@ -23,10 +21,10 @@ def clamp01(value):
 
 def clamp_with_warning(min_v, max_v, value, name):
     if value < min:
-        print("warning: %s underflow. %s < %s." % (name, value, min_v))
+        print("warning: {} underflow. {} < {}.".format(name, value, min_v))
         return min_v
     elif value > max:
-        print("warning: %s overflow. %s > %s." % (name, value, max_v))
+        print("warning: {} overflow. {} > {}.".format(name, value, max_v))
         return max_v
     else:
         return value

@@ -29,7 +29,7 @@ class WWSensorDistance(WWSensorBase):
     """
 
     def __init__(self, robot):
-        super(WWSensorDistance, self).__init__(robot)
+        super().__init__(robot)
         self._distance_approximate = None
         self._reflectance          = None
 

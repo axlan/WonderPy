@@ -10,7 +10,7 @@ _expected_json_fields = (
 class WWSensorMedia(WWSensorBase):
 
     def __init__(self, robot):
-        super(WWSensorMedia, self).__init__(robot)
+        super().__init__(robot)
         self._playing = False
 
     @property

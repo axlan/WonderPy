@@ -14,7 +14,7 @@ from WonderPy.components.wwSensorGyroscope import WWSensorGyroscope
 _rc = WWRobotConstants.RobotComponent
 
 
-class WWSensors(object):
+class WWSensors:
 
     def __init__(self, robot):
         self.setup_all_sensors(robot)

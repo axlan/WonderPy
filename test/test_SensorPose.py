@@ -17,11 +17,11 @@ class MyTestCase(unittest.TestCase):
         robot.sensors.parse(packet)
         sensor = robot.sensors.pose
 
-        self.assertAlmostEquals(sensor.x      , -3.4)
-        self.assertAlmostEquals(sensor.y      ,  1.2)
-        self.assertAlmostEquals(sensor.degrees,  5.6)
+        self.assertAlmostEqual(sensor.x      , -3.4)
+        self.assertAlmostEqual(sensor.y      ,  1.2)
+        self.assertAlmostEqual(sensor.degrees,  5.6)
         self.assertTrue        (sensor.watermark_measured is None)
-        self.assertAlmostEquals(sensor.watermark_inferred, 0.0)
+        self.assertAlmostEqual(sensor.watermark_inferred, 0.0)
 
         packet['2002'] = {
             'x'        : 1.2,
@@ -33,11 +33,11 @@ class MyTestCase(unittest.TestCase):
         robot.sensors.parse(packet)
         sensor = robot.sensors.pose
 
-        self.assertAlmostEquals(sensor.x                 , -3.4)
-        self.assertAlmostEquals(sensor.y                 ,  1.2)
-        self.assertAlmostEquals(sensor.degrees           ,  5.6)
-        self.assertAlmostEquals(sensor.watermark_measured,  3)
-        self.assertAlmostEquals(sensor.watermark_inferred,  3)
+        self.assertAlmostEqual(sensor.x                 , -3.4)
+        self.assertAlmostEqual(sensor.y                 ,  1.2)
+        self.assertAlmostEqual(sensor.degrees           ,  5.6)
+        self.assertAlmostEqual(sensor.watermark_measured,  3)
+        self.assertAlmostEqual(sensor.watermark_inferred,  3)
 
 
 if __name__ == '__main__':

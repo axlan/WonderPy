@@ -1,10 +1,7 @@
 import time
 import sys
 
-if sys.version_info > (3, 0):
-    import queue
-else:
-    import Queue as queue
+import queue
 
 from WonderPy.core.wwConstants import WWRobotConstants
 from WonderPy.core.wwCommands import WWCommands
@@ -20,7 +17,7 @@ def reverse_lookup(table, value):
 _rc = WWRobotConstants.RobotComponent
 
 
-class WWRobot(object):
+class WWRobot:
 
     def __init__(self, btleDevice):
         self._btleDevice = btleDevice
@@ -227,6 +224,6 @@ class WWRobot(object):
 
         ret = self.robot_type in rav[ability]
         if log_if_no and not ret:
-            print("Robot '%s' does not have the ability '%s'" % (self.name, ability))
+            print("Robot '{}' does not have the ability '{}'".format(self.name, ability))
 
         return ret

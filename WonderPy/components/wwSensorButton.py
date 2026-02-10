@@ -10,7 +10,7 @@ _expected_json_fields = (
 class WWSensorButton(WWSensorBase):
 
     def __init__(self, robot):
-        super(WWSensorButton, self).__init__(robot)
+        super().__init__(robot)
         self._pressed = False
 
     @property

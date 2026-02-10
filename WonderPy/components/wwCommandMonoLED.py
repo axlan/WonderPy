@@ -8,7 +8,7 @@ _rcv = WWRobotConstants.RobotComponentValues
 class WWCommandMonoLED(WWCommandBase):
 
     def __init__(self, robot):
-        super(WWCommandMonoLED, self).__init__(robot)
+        super().__init__(robot)
 
     def stage_button_main(self, brightness):
         self._robot.stage_cmds(self.compose_button_main(brightness))

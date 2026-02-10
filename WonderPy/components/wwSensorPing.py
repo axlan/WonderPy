@@ -11,7 +11,7 @@ _expected_json_fields = (
 class WWSensorPing(WWSensorBase):
 
     def __init__(self, robot):
-        super(WWSensorPing, self).__init__(robot)
+        super().__init__(robot)
         self._id    = 0
         self._count = 0
 

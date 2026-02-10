@@ -4,7 +4,7 @@ from .wwComponentBase import WWComponentBase
 class WWSensorBase(WWComponentBase):
 
     def __init__(self, robot):
-        super(WWSensorBase, self).__init__(robot)
+        super().__init__(robot)
         self._valid = False
 
     @property
@@ -24,7 +24,7 @@ class WWSensorBase(WWComponentBase):
         ret = ""
         delim = ''
         for fn in self._important_field_names():
-            ret += "%s%s: %s" % (delim, fn, str(getattr(self, fn)))
+            ret += "{}{}: {}".format(delim, fn, str(getattr(self, fn)))
             delim = ', '
         return ret
 

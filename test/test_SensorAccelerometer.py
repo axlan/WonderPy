@@ -16,9 +16,9 @@ class MyTestCase(unittest.TestCase):
 
         robot.sensors.parse(packet)
 
-        self.assertAlmostEquals(robot.sensors.accelerometer.x, -3.4)
-        self.assertAlmostEquals(robot.sensors.accelerometer.y,  1.2)
-        self.assertAlmostEquals(robot.sensors.accelerometer.z,  5.6)
+        self.assertAlmostEqual(robot.sensors.accelerometer.x, -3.4)
+        self.assertAlmostEqual(robot.sensors.accelerometer.y,  1.2)
+        self.assertAlmostEqual(robot.sensors.accelerometer.z,  5.6)
 
 
 if __name__ == '__main__':

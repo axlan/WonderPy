@@ -8,7 +8,7 @@ _rcv = WWRobotConstants.RobotComponentValues
 class WWCommandPing(WWCommandBase):
 
     def __init__(self, robot):
-        super(WWCommandPing, self).__init__(robot)
+        super().__init__(robot)
 
     def stage_ping(self, ping_id):
         self._robot.stage_cmds(self.compose_ping(ping_id))

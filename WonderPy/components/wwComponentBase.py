@@ -1,4 +1,4 @@
-class WWComponentBase(object):
+class WWComponentBase:
 
     def __init__(self, robot):
         self._robot = robot

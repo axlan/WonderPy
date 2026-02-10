@@ -1,9 +1,9 @@
 # flake8: noqa E501
 
 
-class WWMedia(object):
+class WWMedia:
 
-    class WWSound(object):
+    class WWSound:
         # Note that "CUSTOM_XX" are are the custom sounds recorded by users and transferred to the robot.
         # These are the same for all robots.
         # Some (or all) of them may not be present!
@@ -11,7 +11,7 @@ class WWMedia(object):
         # so this must be done using another app such as Wonder, Blockly, or Cue.
 
 
-        class WWSoundDot(object):
+        class WWSoundDot:
             AIRPORTJET   = "SYSTAIRPORTJET"    # Airplane
             ANGLEHERE    = "SYSTANGLEHERE"     # Hey, what's the angle, here?
             ANSWERIS     = "SYSTANSWERIS"      # And, the answer is...
@@ -171,7 +171,7 @@ class WWMedia(object):
             YOLO         = "SYSTYOLO"          # Yolo!
             YOUSHUSH     = "SYSTYOUSHUSH"      # You shush!
 
-        class WWSoundDash(object):
+        class WWSoundDash:
             AIRPORTJET   = "SYSTAIRPORTJET"    # Airplane
             ALRIGHT_03   = "SYSTALRIGHT_03"    # All Right!
             AREAWESOME   = "SYSTAREAWESOME"    # You, my good friend, are awesome
@@ -357,7 +357,7 @@ class WWMedia(object):
             YIPPEE       = "SYSTYIPPEE"        # Yippee! #1
             YIPPEE_02    = "SYSTYIPPEE_02"     # Yippee! #2
 
-        class WWSoundCue(object):
+        class WWSoundCue:
             charge_ABSO         = "SNCHABSO"          # Absolutely
             charge_ABOUFA       = "SNCHABOUFA"        # Abouuuut face!
             charge_AHH          = "SNCHAHH"           # ahh! (scared)

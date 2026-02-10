@@ -13,7 +13,7 @@ _rcv = WWRobotConstants.RobotComponentValues
 _rp  = WWRobotConstants.RobotProperties
 
 
-class WWCommands(object):
+class WWCommands:
 
     def __init__(self, robot):
         self._robot = robot
