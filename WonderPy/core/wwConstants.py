@@ -1,5 +1,7 @@
 class WWRobotConstants:
 
+    WW_BLE_MANUFACTURER_ID = 259
+
     class RobotType:
         WW_ROBOT_UNKNOWN  = 1000
         WW_ROBOT_DASH     = 1001

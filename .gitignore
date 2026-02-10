@@ -8,3 +8,4 @@ develop-eggs/
 *.egg-info/
 dist/
 .DS_Store
+.vscode

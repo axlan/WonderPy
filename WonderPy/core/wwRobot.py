@@ -19,12 +19,12 @@ _rc = WWRobotConstants.RobotComponent
 
 class WWRobot:
 
-    def __init__(self, btleDevice):
-        self._btleDevice = btleDevice
+    def __init__(self, manufacturerData: bytes, name: str):
+        self._name = name
 
         # note: device.manufacturerData is only present when ADAFruit has been patched
         #       with this: https://github.com/adafruit/Adafruit_Python_BluefruitLE/pull/33
-        self.parseManufacturerData(btleDevice.manufacturerData)
+        self.parseManufacturerData(manufacturerData)
 
         self._command_queue = queue.Queue()
 
@@ -55,7 +55,7 @@ class WWRobot:
 
     @property
     def name(self):
-        return self._btleDevice.name
+        return self._name
 
     @property
     def robot_type(self):
@@ -111,14 +111,19 @@ class WWRobot:
     def sensor_count(self):
         return self._sensor_count
 
-    def parseManufacturerData(self, manuData):
+    def parseManufacturerData(self, manuData: bytes):
         """parse the manufacturer data portion of the BTLE advertisement"""
+
+        # NOTE: In testing with a Dash DA01, I see manufacture data:
+        # b'\x01\x02\x03\x00\x07z\x0c\x00\x00\x00\x00\x00\x00\x00#\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+        # This would be a Dot DFU in BL mode. Since its a Dash, this mapping may be inaccurate.
+        # It's also possible there's some difference I don't understand in how this data is handled in Bleak vs Adafruit_BluefruitLE. 
 
         self._robot_type = WWRobotConstants.RobotType.WW_ROBOT_UNKNOWN
         self._sendJson   = None
         self._mode       = WWRobotConstants.RobotMode.ROBOT_MODE_UNKNOWN
 
-        if not manuData:
+        if len(manuData) < 2:
             print("error: no manufacturer data. robot: %s" % (self.name))
             return
 
