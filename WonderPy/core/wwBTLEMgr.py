@@ -7,6 +7,7 @@ import asyncio
 from bleak import BleakScanner, BleakClient
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
+from bleak.backends.characteristic import BleakGATTCharacteristic
 
 from .packet_data_converter import dot_sensor_decode, dash_sensor_decode
 from .wwRobot import WWRobot
@@ -55,8 +56,6 @@ class WWBTLEManager:
         self.delegate = delegate
 
         self.robot:Optional[WWRobot] = None
-
-        self._sensor_queue = asyncio.Queue()
 
         self.client: Optional[BleakClient] = None
         self.loop = None
@@ -235,25 +234,35 @@ class WWBTLEManager:
         await self._send_connection_interval_renegotiation()
 
         # Setup notification callbacks
-        def on_data_sensor0(sender, data):
+        def on_data_sensor(sender: BleakGATTCharacteristic, data: bytearray):
             assert self.robot is not None
-            if not self.robot.expect_sensor_packet_2:
-                self._sensor_queue.put(dot_sensor_decode(data))
+            new_sensor_data = None
+ 
+            if uuid.UUID(sender.uuid) == CHAR_UUID_SENSOR0:
+                if not self.robot.expect_sensor_packet_2:
+                    new_sensor_data = dot_sensor_decode(data)
+                else:
+                    self.robot._sensor_packet_1 = data
             else:
-                self.robot._sensor_packet_1 = data
+                if self.robot._sensor_packet_1 is not None:
+                    new_sensor_data = dot_sensor_decode(self.robot._sensor_packet_1)
+                    new_sensor_data.update(dash_sensor_decode(data))
+                    self.robot._sensor_packet_1 = None
 
-        def on_data_sensor1(sender, data):
-            assert self.robot is not None
-            if self.robot._sensor_packet_1 is not None:
-                sensor_data = dot_sensor_decode(self.robot._sensor_packet_1)
-                sensor_data.update(dash_sensor_decode(data))
-                self._sensor_queue.put(sensor_data)
-                self.robot._sensor_packet_1 = None
+            if new_sensor_data is not None:
+                self.robot._parse_sensors(new_sensor_data)
+                if hasattr(self.delegate, 'on_sensors') and callable(getattr(self.delegate, 'on_sensors')):
+                    wwMain.thread_local_data.in_on_sensors = True
+                    self.delegate.on_sensors(self.robot)
+                    wwMain.thread_local_data.in_on_sensors = False
+
+            # actually send the commands which have queued up via stage_foo()
+            self.robot.send_staged()
 
         # Start notifications
-        await self.client.start_notify(CHAR_UUID_SENSOR0, on_data_sensor0)
+        await self.client.start_notify(CHAR_UUID_SENSOR0, on_data_sensor)
         if self.robot.expect_sensor_packet_2:
-            await self.client.start_notify(CHAR_UUID_SENSOR1, on_data_sensor1)
+            await self.client.start_notify(CHAR_UUID_SENSOR1, on_data_sensor)
 
         print('Connected to \'%s\'!' % (self.robot.name))
 
@@ -264,17 +273,7 @@ class WWBTLEManager:
 
         try:
             while True:
-                # blocks until there's something in the queue
-                jsonDict = await self._sensor_queue.get()
-                self.robot._parse_sensors(jsonDict)
-
-                if hasattr(self.delegate, 'on_sensors') and callable(getattr(self.delegate, 'on_sensors')):
-                    wwMain.thread_local_data.in_on_sensors = True
-                    self.delegate.on_sensors(self.robot)
-                    wwMain.thread_local_data.in_on_sensors = False
-
-                # actually send the commands which have queued up via stage_foo()
-                self.robot.send_staged()
+                await asyncio.sleep(1)
         except (KeyboardInterrupt, asyncio.CancelledError):
             sys.stdout.write('Stopping...\n')
             sys.stdout.flush()

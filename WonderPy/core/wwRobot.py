@@ -34,7 +34,7 @@ class WWRobot:
         self._sensors           = WWSensors (self)
         self._commands          = WWCommands(self)
 
-        self._sensor_packet_1 = Optional[bytes]
+        self._sensor_packet_1: Optional[bytes] = None
 
         rt = WWRobotConstants.RobotType
         self._expect_sensor_packet_2 = self.robot_type in {rt.WW_ROBOT_DASH, rt.WW_ROBOT_CUE}
