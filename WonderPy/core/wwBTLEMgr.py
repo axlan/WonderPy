@@ -9,7 +9,7 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
 from bleak.backends.characteristic import BleakGATTCharacteristic
 
-from .packet_data_converter import dot_sensor_decode, dash_sensor_decode
+from .packet_data_converter import dot_sensor_decode, dash_sensor_decode, encode_cmd
 from .wwRobot import WWRobot
 from .wwConstants import WWRobotConstants
 from WonderPy.core import wwMain
@@ -246,7 +246,7 @@ class WWBTLEManager:
             else:
                 if self.robot._sensor_packet_1 is not None:
                     new_sensor_data = dot_sensor_decode(self.robot._sensor_packet_1)
-                    new_sensor_data.update(dash_sensor_decode(data))
+                    new_sensor_data.update(dash_sensor_decode(self.robot._sensor_packet_1, data))
                     self.robot._sensor_packet_1 = None
 
             if new_sensor_data is not None:
@@ -293,20 +293,14 @@ class WWBTLEManager:
         ba[2] = CONNECTION_INTERVAL_MS
         await self.client.write_gatt_char(CHAR_UUID_CMD, ba)
 
-    async def sendJson(self, dict):
-        if len(dict) == 0:
+    async def sendJson(self, cmd_dict):
+        assert self.client is not None
+        if len(cmd_dict) == 0:
             return
 
-        # json_str = json.dumps(dict)
-
-        # packets = WWBTLEManager.two_packet_wrappers()
-
-        # self.libHAL.json2Packets(json_str, ctypes.byref(packets))
-
-        # if packets.packet1_bytes_num > 0:
-        #     await self.client.write_gatt_char(self.char_cmd.uuid, packets.packet1_bytes[:packets.packet1_bytes_num])
-        # if packets.packet2_bytes_num > 0:
-        #     await self.client.write_gatt_char(self.char_cmd.uuid, packets.packet2_bytes[:packets.packet2_bytes_num])
+        packets = encode_cmd(cmd_dict)
+        for packet in packets:
+            await self.client.write_gatt_char(CHAR_UUID_CMD, packet)
 
     def run(self):
         # Run the async scan_and_connect method using asyncio
