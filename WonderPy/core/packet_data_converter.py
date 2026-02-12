@@ -69,6 +69,54 @@ def _color_byte_array(color_dict: dict[str, float]):
         int(round(color_dict[_rcv.WW_COMMAND_VALUE_COLOR_BLUE]*255.0)),
     ])
 
+def _get_mic_results(value: bytes) -> dict[str, Any]:
+    ############# This is probably Dash specific ##################
+    # This does not appear to work well. The angle and clap flag are
+    # reasonable, but mic_count is always 0.
+    # Probably, not implemented correctly
+    clap_flag =  (value[0xb] & 1) != 0
+    mic_amp = value[7]
+    mic_dir = 0
+    mic_con = 0
+
+    if mic_amp != 0:
+        # Extract direction: 13-bit angle from bits [12:8] of data[2] and bits [7:4] of data[1]
+        # Scaled from [0, 512) to [0, 360) degrees, then shifted to [-180, +180)
+        angle_raw = ((value[2] & 0x1F) << 4) | (value[1] >> 4)
+        angle_deg = int((angle_raw * 360.0) / 512.0)
+        if angle_deg > 180:
+            angle_deg -= 360
+
+        # Extract mic count (bits 3:0 of data[0]), clamped to [0, 3]
+        mic_count = min(max((value[0] & 0x0F) - 3.0, 0.0), 3.0)
+        confidence  = mic_count / 3.0
+
+        # For robot type 0x3E9: scale confidence by signal strength (bits 3:0 of data[1]), clamped to [0, 15]
+        signal = min((value[1] & 0x0F), 15.0)
+        confidence  *= signal / 15.0
+
+        # Scale confidence by gain (bits 7:4 of data[0]), clamped to [0, 5]
+        gain       = min(value[0] >> 4, 5.0)
+        confidence_byte = confidence * (gain / 5.0) * 255.0
+        confidence_byte = float(int(confidence_byte) & 0xFF)
+
+        # Only report direction if confidence is high enough and noise flag is not set
+        # Bit 5 of data[1] is a noise/unreliable flag
+        noisy = (value[1] & 0x20) != 0
+
+        # For now just report the values even if low confidence
+        #if confidence_byte > 10.0 and not noisy:
+        mic_dir = angle_deg
+        mic_con = int(confidence_byte)
+
+    return {_rc.WW_SENSOR_MICROPHONE: {
+        _rcv.WW_SENSOR_VALUE_MIC_AMPLITUDE: mic_amp / 255.0,
+        _rcv.WW_SENSOR_VALUE_MIC_TRIANGULATION_CONF: mic_con,
+        _rcv.WW_SENSOR_VALUE_MIC_TRIANGULATION_ANGLE: mic_dir / 180.0 * math.pi,
+        _rcv.WW_SENSOR_VALUE_MIC_CLAP_DETECTED: clap_flag,
+    }}
+
+
 def dot_sensor_decode(value: bytes) -> dict[str, Any]:
     results = {}
 
@@ -94,8 +142,9 @@ def dot_sensor_decode(value: bytes) -> dict[str, Any]:
         _rcv.WW_SENSOR_VALUE_BUTTON_STATE: value[8] & 0x80 > 0
     }
 
+    results.update(_get_mic_results(value))
+
     ########### Remaining is HW specific / more complicated
-    # results[_rc.WW_SENSOR_MICROPHONE] = {}
     # results[_rc.WW_SENSOR_BATTERY] = {}
     # results[_rc.WW_SENSOR_BEACON] = {}
     # results[_rc.WW_SENSOR_BEACON_V2] = {}
@@ -335,6 +384,13 @@ def encode_cmd(dict_data: dict[str, Any]) -> list[bytes]:
             msg_bytes = b'\x03' + _color_byte_array(val)
         elif key == _rc.WW_COMMAND_LIGHT_RGB_BUTTON_MAIN:
             msg_bytes = b'\x0d' + _color_byte_array(val)
+        elif key in {_rc.WW_COMMAND_BODY_WHEELS, _rc.WW_COMMAND_BODY_COAST, _rc.WW_COMMAND_BODY_LINEAR_ANGULAR,
+                     _rc.WW_COMMAND_EYE_RING, _rc.WW_COMMAND_HEAD_PAN_VOLTAGE, _rc.WW_COMMAND_HEAD_POSITION_PAN, _rc.WW_COMMAND_HEAD_TILT_VOLTAGE,
+                     _rc.WW_COMMAND_HEAD_POSITION_TILT, _rc.WW_COMMAND_LAUNCHER_FLING, _rc.WW_COMMAND_LAUNCHER_RELOAD, _rc.WW_COMMAND_LED_MESSAGE,
+                      _rc.WW_COMMAND_SET_PING, _rc.WW_COMMAND_SPEAKER,_rc.WW_COMMAND_POWER, _rc.WW_COMMAND_ON_ROBOT_ANIM, _rc.WW_COMMAND_LIGHT_MONO_TAIL,
+                      _rc.WW_COMMAND_LIGHT_MONO_BUTTONS, _rc.WW_COMMAND_LIGHT_MONO_BUTTON_MAIN, _rc.WW_COMMAND_LIGHT_MONO_BUTTON_1,
+                      _rc.WW_COMMAND_LIGHT_MONO_BUTTON_2, _rc.WW_COMMAND_LIGHT_MONO_BUTTON_3, _rc.WW_COMMAND_MOTOR_HEAD_BANG}:
+            raise NotImplementedError(f'Command {_CMD_NAME_DICT[key]} not yet implemented.')
         else:
             raise NotImplementedError(f'Command {_CMD_NAME_DICT[key]} not yet implemented.')
         
