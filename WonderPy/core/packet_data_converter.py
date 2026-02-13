@@ -32,6 +32,9 @@ _right_encoder_extender = EncoderExtender()
 def _bytes_to_s16(data: bytes) -> int:
     return struct.unpack('<h', data)[0]
 
+def _clamp(value, min_val, max_val):
+    return max(min_val, min(max_val, value))
+
 def _create_command_lookup():
     """
     Create a reverse lookup dictionary mapping command values to names.
@@ -56,6 +59,11 @@ def _decode_12bit_pose_int(high_byte, low_byte, nibble_is_msb: bool = False) -> 
 
     return _bytes_to_s16(bytes([low_byte, high_nibble]))
 
+# Scale brightness from 0-1 to 0-255
+def _scale_brightness(val: float) -> int:
+    val = _clamp(val, 0.0, 1.0)
+    return int(round(val * 255.0))
+
 def _color_byte_array(color_dict: dict[str, float]):
     """
     convert color into a 3 byte bytearray
@@ -64,10 +72,30 @@ def _color_byte_array(color_dict: dict[str, float]):
     fully spelled color (e.g. white)
     """
     return bytearray([
-        int(round(color_dict[_rcv.WW_COMMAND_VALUE_COLOR_RED]*255.0)),
-        int(round(color_dict[_rcv.WW_COMMAND_VALUE_COLOR_GREEN]*255.0)),
-        int(round(color_dict[_rcv.WW_COMMAND_VALUE_COLOR_BLUE]*255.0)),
+        _scale_brightness(color_dict[_rcv.WW_COMMAND_VALUE_COLOR_RED]),
+        _scale_brightness(color_dict[_rcv.WW_COMMAND_VALUE_COLOR_GREEN]),
+        _scale_brightness(color_dict[_rcv.WW_COMMAND_VALUE_COLOR_BLUE]),
     ])
+
+def _mono_byte_array(bright_dict: dict[str, float]):
+    """
+    convert 3 brightness values into a 3 byte bytearray
+    """
+    return bytearray([
+        _scale_brightness(bright_dict[_rcv.WW_COMMAND_VALUE_1]),
+        _scale_brightness(bright_dict[_rcv.WW_COMMAND_VALUE_2]),
+        _scale_brightness(bright_dict[_rcv.WW_COMMAND_VALUE_3]),
+    ])
+
+def _mono_single_byte(bright_dict: dict[str, float]):
+    return bytearray([
+        _scale_brightness(bright_dict[_rcv.WW_COMMAND_VALUE_COLOR_BRIGHTNESS]),
+    ])
+
+def _servo_angle_bytes(angle_dict: dict[str, float], min_deg, max_deg) -> bytes:
+    angle_val = _clamp(angle_dict[_rcv.WW_COMMAND_VALUE_ANGLE_DEGREE], min_deg, max_deg)
+    angle_val = int(round(angle_val * -100.0))
+    return struct.pack('>h', angle_val)
 
 def _get_mic_results(value: bytes) -> dict[str, Any]:
     ############# This is probably Dash specific ##################
@@ -144,14 +172,23 @@ def dot_sensor_decode(value: bytes) -> dict[str, Any]:
 
     results.update(_get_mic_results(value))
 
+    results[_rc.WW_SENSOR_PICKED_UP] = {
+        _rcv.WW_SENSOR_VALUE_FLAG: value[0xb] & 4 != 0
+    }
+    results[_rc.WW_SENSOR_BUMP_STALL] = {
+        _rcv.WW_SENSOR_VALUE_FLAG: value[0xb] & 8 != 0
+    }
+    results[_rc.WW_SENSOR_SOUND_PLAYING] = {
+        _rcv.WW_SENSOR_VALUE_FLAG: value[0xb] & 2 != 0
+    }
+    results[_rc.WW_SENSOR_ANIMATION_PLAYING] = {
+        _rcv.WW_SENSOR_VALUE_FLAG: value[0xb] & 0x40 != 0
+    }
+
     ########### Remaining is HW specific / more complicated
     # results[_rc.WW_SENSOR_BATTERY] = {}
     # results[_rc.WW_SENSOR_BEACON] = {}
     # results[_rc.WW_SENSOR_BEACON_V2] = {}
-    # results[_rc.WW_SENSOR_PICKED_UP] = {}
-    # results[_rc.WW_SENSOR_BUMP_STALL] = {}
-    # results[_rc.WW_SENSOR_SOUND_PLAYING] = {}
-    # results[_rc.WW_SENSOR_ANIMATION_PLAYING] = {}
     # results[_rc.WW_SENSOR_PING_RESPONSE] = {}
 
     ########## Notes from https://github.com/IlyaSukhanov/morseapi
@@ -362,6 +399,18 @@ def _encode_pose(args: dict[str, Any]) -> bytes:
     #     """
     #     self.command("eye_brightness", one_byte_array(value))
 
+def _encode_speaker(args: dict[str, Any]) -> bytes:
+    file_name = args[_rcv.WW_COMMAND_VALUE_FILE]
+
+    if len(file_name) > 15 or len(file_name) == 0:
+        print('Invalid sound name.')
+        file_name = _rcv.WW_COMMAND_VALUE_STOP_SOUND
+    
+    if file_name == _rcv.WW_COMMAND_VALUE_STOP_SOUND:
+        return b'\x1a'
+    else:
+        return b'\x18' + file_name.encode('ascii')
+    
 MAX_PACKET_LEN = 20
 
 def encode_cmd(dict_data: dict[str, Any]) -> list[bytes]:
@@ -370,55 +419,67 @@ def encode_cmd(dict_data: dict[str, Any]) -> list[bytes]:
         if key not in _CMD_NAME_DICT:
             raise ValueError(f'Invalid command key: {key}')
         
-        msg_bytes = b''
+        msg_bytes:list[bytes] = []
         if key == _rc.WW_COMMAND_BODY_POSE:
-            msg_bytes = _encode_pose(val)
+            msg_bytes.append(_encode_pose(val))
         elif key == _rc.WW_COMMAND_LIGHT_RGB_EYE:
             # Haven't double checked this ID
-            msg_bytes = b'\x0a' + _color_byte_array(val)
+            msg_bytes.append(b'\x0a' + _color_byte_array(val))
         elif key == _rc.WW_COMMAND_LIGHT_RGB_LEFT_EAR:
-            msg_bytes = b'\x0b' + _color_byte_array(val)
+            msg_bytes.append(b'\x0b' + _color_byte_array(val))
         elif key == _rc.WW_COMMAND_LIGHT_RGB_RIGHT_EAR:
-            msg_bytes = b'\x0c' + _color_byte_array(val)
+            msg_bytes.append(b'\x0c' + _color_byte_array(val))
         elif key == _rc.WW_COMMAND_LIGHT_RGB_CHEST:
-            msg_bytes = b'\x03' + _color_byte_array(val)
+            msg_bytes.append(b'\x03' + _color_byte_array(val))
         elif key == _rc.WW_COMMAND_LIGHT_RGB_BUTTON_MAIN:
-            msg_bytes = b'\x0d' + _color_byte_array(val)
+            msg_bytes.append(b'\x0d' + _color_byte_array(val))
+        elif key == _rc.WW_COMMAND_SPEAKER:
+            # what is expected range? In dylib its multiplied by 100 then truncated to 8 bits
+            volume = int(_clamp(val[_rcv.WW_COMMAND_VALUE_SOUND_VOLUME], 0, 2.5) * 100.0)
+            msg_bytes.append(b'\x0e' + bytes([volume]))
+            msg_bytes.append(_encode_speaker(val))
+        elif key == _rc.WW_COMMAND_POWER:
+            # Must be u8 value. Only known function is 4=soft_reset
+            msg_bytes.append(b'\xc8' + bytes([val]))
+        elif key == _rc.WW_COMMAND_LIGHT_MONO_TAIL:
+            msg_bytes.append(b'\x04' + _mono_single_byte(val))
+        elif key == _rc.WW_COMMAND_LIGHT_MONO_BUTTON_MAIN:
+            msg_bytes.append(b'\x0d' + _mono_single_byte(val))
+        elif key == _rc.WW_COMMAND_LIGHT_MONO_BUTTON_1:
+            msg_bytes.append(b'3' + _mono_single_byte(val))
+        elif key == _rc.WW_COMMAND_LIGHT_MONO_BUTTON_2:
+            msg_bytes.append(b'4' + _mono_single_byte(val))
+        elif key == _rc.WW_COMMAND_LIGHT_MONO_BUTTON_3:
+            msg_bytes.append(b'5' + _mono_single_byte(val))
+        elif key == _rc.WW_COMMAND_LIGHT_MONO_BUTTONS:
+            msg_bytes.append(b'1' + _mono_byte_array(val))
+        elif key == _rc.WW_COMMAND_HEAD_POSITION_TILT:
+            # Should limit servo as follows:
+            # (1003)"Dot":  −24°to+13°
+            # (1001)"Dash": −24°to+7°
+            msg_bytes.append(b'\x07' + _servo_angle_bytes(val, -24, 7))
+        elif key == _rc.WW_COMMAND_HEAD_POSITION_PAN:
+            # Should limit servo as follows:
+            # (1003)"Dot":  −133°to+133°
+            # (1001)"Dash": −120°to+120°
+            msg_bytes.append(b'\x06' + _servo_angle_bytes(val, -120, 120))
         elif key in {_rc.WW_COMMAND_BODY_WHEELS, _rc.WW_COMMAND_BODY_COAST, _rc.WW_COMMAND_BODY_LINEAR_ANGULAR,
-                     _rc.WW_COMMAND_EYE_RING, _rc.WW_COMMAND_HEAD_PAN_VOLTAGE, _rc.WW_COMMAND_HEAD_POSITION_PAN, _rc.WW_COMMAND_HEAD_TILT_VOLTAGE,
-                     _rc.WW_COMMAND_HEAD_POSITION_TILT, _rc.WW_COMMAND_LAUNCHER_FLING, _rc.WW_COMMAND_LAUNCHER_RELOAD, _rc.WW_COMMAND_LED_MESSAGE,
-                      _rc.WW_COMMAND_SET_PING, _rc.WW_COMMAND_SPEAKER,_rc.WW_COMMAND_POWER, _rc.WW_COMMAND_ON_ROBOT_ANIM, _rc.WW_COMMAND_LIGHT_MONO_TAIL,
-                      _rc.WW_COMMAND_LIGHT_MONO_BUTTONS, _rc.WW_COMMAND_LIGHT_MONO_BUTTON_MAIN, _rc.WW_COMMAND_LIGHT_MONO_BUTTON_1,
-                      _rc.WW_COMMAND_LIGHT_MONO_BUTTON_2, _rc.WW_COMMAND_LIGHT_MONO_BUTTON_3, _rc.WW_COMMAND_MOTOR_HEAD_BANG}:
+                     _rc.WW_COMMAND_EYE_RING, _rc.WW_COMMAND_HEAD_PAN_VOLTAGE, _rc.WW_COMMAND_HEAD_TILT_VOLTAGE,
+                      _rc.WW_COMMAND_LAUNCHER_FLING, _rc.WW_COMMAND_LAUNCHER_RELOAD, _rc.WW_COMMAND_LED_MESSAGE,
+                      _rc.WW_COMMAND_SET_PING,_rc.WW_COMMAND_POWER, _rc.WW_COMMAND_ON_ROBOT_ANIM, 
+                      _rc.WW_COMMAND_MOTOR_HEAD_BANG}:
             raise NotImplementedError(f'Command {_CMD_NAME_DICT[key]} not yet implemented.')
         else:
             raise NotImplementedError(f'Command {_CMD_NAME_DICT[key]} not yet implemented.')
         
-        fit = False
-        for i, packet in enumerate(packets):
-            if len(packet) + len(msg_bytes) < MAX_PACKET_LEN:
-                packets[i] = packet + msg_bytes
-                fit = True
+        for msg in msg_bytes:
+            fit = False
+            for i, packet in enumerate(packets):
+                if len(packet) + len(msg) < MAX_PACKET_LEN:
+                    packets[i] = packet + msg
+                    fit = True
 
-        if not fit:
-            packets.append(msg_bytes)
+            if not fit:
+                packets.append(msg)
         
     return packets
-
-# COMMANDS = {
-#     "neck_color":0x03,
-#     "tail_brightness":0x04,
-#     "eye_brightness":0x08,
-#     "eye":0x09,
-#     "left_ear_color":0x0b,
-#     "right_ear_color":0x0c,
-#     "head_color":0x0d,
-#     "head_pitch":0x07,
-#     "head_yaw":0x06,
-#     "pose":0x23,
-#     "say":0x18,
-#     "beep":0x19,
-#     "drive":0x02,
-#     "move":0x23,
-#     "reset":0xc8,
-# }

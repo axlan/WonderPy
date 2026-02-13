@@ -20,3 +20,16 @@ class WWCommandMonoLED(WWCommandBase):
         return {
             _rcv.WW_COMMAND_VALUE_COLOR_BRIGHTNESS: brightness,
         }
+
+    def stage_3_button_brightness(self, brightness1, brightness2, brightness3):
+        self._robot.stage_cmds(self.compose_3_button_brightness(self, brightness1, brightness2, brightness3))
+
+    def compose_3_button_brightness(self, brightness1, brightness2, brightness3):
+        return {
+            _rc.WW_COMMAND_LIGHT_MONO_BUTTONS: {
+                _rcv.WW_COMMAND_VALUE_1: brightness1,
+                _rcv.WW_COMMAND_VALUE_1: brightness2,
+                _rcv.WW_COMMAND_VALUE_1: brightness3,
+            }
+        }
+

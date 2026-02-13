@@ -2,7 +2,11 @@
 
 See <https://github.com/playi/WonderPy/blob/master/README.md> for the original documentation.
 
-This is an unofficial port that reverse engineers the JSON to binary protocol. See: <https://www.robopenguins.com/reverse-dash/>
+This is an unofficial port that reverse engineers the JSON to binary protocol. 
+
+See: <https://www.robopenguins.com/reverse-dash/> for a blog post of my approach 
+
+See: [ReversingDylib.md](doc/reversing/ReversingDylib.md) for reverse engineering notes.
 
 For the supported commands and sensors, the interface should be exactly the same as with the original library.
 
@@ -41,13 +45,12 @@ Commands
  - pose ✅ Mostly working. Didn't implement some logic for resetting global origin. May have some issues with accumulating error around relative angle commands.
  - RGB Lights ✅
  - Speaker ❔ Same functionality as original library. This does not include uploading custom sounds
- - Eye Ring Lights/Animation 🛑 Didn't attempt, but should work
- - Mono Lights 🛑 Didn't attempt, but would be easy
- - Head Pan/Tilt 🛑 Didn't attempt, but should work
- - Launcher 🛑 Didn't attempt, but should work
- - Low Level Wheel Control 🛑 Didn't attempt, but should work
- - Power 🛑 Didn't attempt, but should work
- - Robot Animation 🛑 Didn't attempt, but should work
+ - Power ❔ Implemented, but didn't experiment with values
+ - Head Pan/Tilt ❔ Only implemented position commands
+ - Eye Ring Lights/Animation 🛑 Didn't attempt, but should be doable
+ - Launcher 🛑 Didn't attempt, but should be doable
+ - Low Level Wheel Control 🛑 Didn't attempt, but should be doable
+ - Robot Animation 🛑 Didn't attempt, but should be doable
 
 Sensors
  - Buttons ✅
@@ -57,12 +60,12 @@ Sensors
  - Gyro ✅
  - Distance Sensors ❔ The raw values are captured, but the original library used the dylib to convert the values to distance in cm. This would be fairly complicated to extract, and would probably be better done from scratch.
  - Wheel Encoders ✅
+ - Picked Up ✅
+ - Bump Stall ✅
+ - Sound Playing ✅
+ - Animation Playing ✅
  - Microphone ❔ I made an attempt at reversing this from the dylib. The amplitude and direction sort of worked, but not the confidence. Also, this value isn't actually surfaced in the API.
  - Battery 🛑 Didn't attempt, is complicated by device specific variations
  - Beacons 🛑 Didn't attempt, is complicated by device specific variations
- - Picked Up 🛑 Didn't attempt
- - Bump Stall 🛑 Didn't attempt
- - Sound Playing 🛑 Didn't attempt
- - Animation Playing 🛑 Didn't attempt
 
 The original Python library had many features that were referenced, but not fully implemented. Other features were reference in the dylib, but not the Python code. The remaining functionality could probably be found by spying on the BlueTooth traffic, but I'm not planning to look into that.
