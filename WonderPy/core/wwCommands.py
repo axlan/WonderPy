@@ -7,13 +7,14 @@ from WonderPy.components.wwCommandMonoLED import WWCommandMonoLED
 from WonderPy.components.wwCommandMedia import WWCommandMedia
 from WonderPy.components.wwCommandAccessory import WWCommandAccessory
 from WonderPy.components.wwCommandHead import WWCommandHead
+from WonderPy.components.wwCommandNew import wwCommandNew
 
 _rc  = WWRobotConstants.RobotComponent
 _rcv = WWRobotConstants.RobotComponentValues
 _rp  = WWRobotConstants.RobotProperties
 
 
-class WWCommands(object):
+class WWCommands:
 
     def __init__(self, robot):
         self._robot = robot
@@ -25,3 +26,4 @@ class WWCommands(object):
         self.body       = WWCommandBody     (robot)
         self.RGB        = WWCommandRGB      (robot)
         self.accessory  = WWCommandAccessory(robot)
+        self.new        = wwCommandNew(robot)

@@ -1,0 +1,11 @@
+[project]
+name = "wonderpy"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "bleak>=2.1.1",
+    "mock>=5.2.0",
+    "svgpathtools>=1.7.2",
+]

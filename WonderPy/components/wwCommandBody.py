@@ -14,7 +14,7 @@ class WWCommandBody(WWCommandBase):
     default_acceleration_angular_degrees_s_s = 900.0
 
     def __init__(self, robot):
-        super(WWCommandBody, self).__init__(robot)
+        super().__init__(robot)
 
     @do_not_call_within_connect_or_sensors
     def do_forward(self, y_cm, speed_cm_s):

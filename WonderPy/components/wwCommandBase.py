@@ -25,7 +25,7 @@ class WWCommandBase(WWComponentBase):
     """
 
     def __init__(self, robot):
-        super(WWCommandBase, self).__init__(robot)
+        super().__init__(robot)
 
     @staticmethod
     def _block_for_simple_timeout(time_for_command, timeout):

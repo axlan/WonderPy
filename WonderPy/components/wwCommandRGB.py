@@ -8,7 +8,7 @@ _rcv = WWRobotConstants.RobotComponentValues
 class WWCommandRGB(WWCommandBase):
 
     def __init__(self, robot):
-        super(WWCommandRGB, self).__init__(robot)
+        super().__init__(robot)
 
     def stage_all(self, r, g, b):
         self.stage_front    (r, g, b)

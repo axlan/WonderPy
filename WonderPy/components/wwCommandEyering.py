@@ -10,7 +10,7 @@ _rp  = WWRobotConstants.RobotProperties
 class WWCommandEyering(WWCommandBase):
 
     def __init__(self, robot):
-        super(WWCommandEyering, self).__init__(robot)
+        super().__init__(robot)
 
     def stage_eyering(self, pattern, brightness):
         s = self.compose_eyering(pattern, brightness)

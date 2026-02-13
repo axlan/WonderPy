@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import math
 from datetime                  import datetime
 from WonderPy.util             import wwMath
@@ -8,9 +6,9 @@ from WonderPy.core.wwConstants import WWRobotConstants
 _queue_max = 5
 
 
-class WWPath(object):
+class WWPath:
 
-    class Pose(object):
+    class Pose:
         def __init__(self):
             self.x_cm     = 0
             self.y_cm     = 0
@@ -19,7 +17,7 @@ class WWPath(object):
             self.apt      = 0
 
         def __str__(self):
-            return "%7.2fcm, %7.2fcm, %7.2fº, %7.2fs" % (self.x_cm, self.y_cm, self.degrees, self.duration)
+            return "{:7.2f}cm, {:7.2f}cm, {:7.2f}º, {:7.2f}s".format(self.x_cm, self.y_cm, self.degrees, self.duration)
 
     def __init__(self, points=None):
         self.points              = points if points is not None else []

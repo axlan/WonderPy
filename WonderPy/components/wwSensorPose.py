@@ -28,7 +28,7 @@ _t0 = time.time()
 class WWSensorPose(WWSensorBase):
 
     def __init__(self, robot):
-        super(WWSensorPose, self).__init__(robot)
+        super().__init__(robot)
         self._x                  = 0
         self._y                  = 0
         self._degrees            = 0

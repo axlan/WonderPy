@@ -1,34 +1,29 @@
-# -*- coding: utf-8 -*-
-
+from typing import Optional
 import uuid
-import ctypes
-import json
 import sys
 import argparse
-import time
-import os
+import asyncio
 
-try:
-    import Adafruit_BluefruitLE
-except ImportError:
-    print("Unable to import module: Adafruit_BluefruitLE. You may need to install it manually. See the README.md for WonderPy.")
-    raise
+from bleak import BleakScanner, BleakClient
+from bleak.backends.device import BLEDevice
+from bleak.backends.scanner import AdvertisementData
+from bleak.backends.characteristic import BleakGATTCharacteristic
 
-
-if sys.version_info > (3, 0):
-    import queue
-else:
-    import Queue as queue
-
+from .packet_data_converter import dot_sensor_decode, dash_sensor_decode, encode_cmd
 from .wwRobot import WWRobot
 from .wwConstants import WWRobotConstants
 from WonderPy.core import wwMain
-from WonderPy.config import WW_ROOT_DIR
 
 
 class WWException(Exception):
         pass
 
+ScanResults = tuple[BLEDevice, AdvertisementData]
+
+def robot_from_device(result: ScanResults) -> WWRobot:
+    name = result[0].name if result[0].name else ''
+    data = result[1].manufacturer_data[WWRobotConstants.WW_BLE_MANUFACTURER_ID] if WWRobotConstants.WW_BLE_MANUFACTURER_ID in result[1].manufacturer_data else bytes()
+    return WWRobot(data, name) 
 
 # Define service and characteristic UUIDs used by the WW devices.
 WW_SERVICE_UUID_D1     = uuid.UUID('AF237777-879D-6186-1F49-DECA0E85D9C1')   # dash and dot
@@ -47,7 +42,7 @@ CHAR_UUID_SENSOR1      = uuid.UUID('AF230006-879D-6186-1F49-DECA0E85D9C1')   # s
 CONNECTION_INTERVAL_MS  = 12
 
 
-class WWBTLEManager(object):
+class WWBTLEManager:
 
     def __init__(self, delegate, arguments=None):
 
@@ -60,15 +55,10 @@ class WWBTLEManager(object):
 
         self.delegate = delegate
 
-        self._load_HAL()
+        self.robot:Optional[WWRobot] = None
 
-        self.robot = None
-
-        self._sensor_queue = queue.Queue()
-
-        # Initialize the BLE system.  MUST be called before other BLE calls!
-        self.ble = Adafruit_BluefruitLE.get_provider()
-        self.ble.initialize()
+        self.client: Optional[BleakClient] = None
+        self.loop = None
 
     @staticmethod
     def setup_argument_parser(parser):
@@ -83,164 +73,138 @@ class WWBTLEManager(object):
         parser.add_argument('--connect-ask', action='store_true',
                             help='interactively ask which of the qualifying robots you\'d like to connect to')
 
-    class two_packet_wrappers(ctypes.Structure):
-        _fields_ = [
-            ('packet1_bytes_num', ctypes.c_byte),
-            ('packet1_bytes'    , ctypes.c_byte * 20),
-            ('packet2_bytes_num', ctypes.c_byte),
-            ('packet2_bytes'    , ctypes.c_byte * 20),
-        ]
-
-    def _load_HAL(self):
-
-        HAL_path = os.path.join(WW_ROOT_DIR, 'lib/WonderWorkshop/osx/libWWHAL.dylib')
-        self.libHAL = ctypes.cdll.LoadLibrary(HAL_path)
-        self.libHAL.packets2Json.restype  = (ctypes.c_char_p)
-        # self.libHAL.json2Packets.argtypes = (c_char_p, WWBTLEManager.two_packet_wrappers)
-
-    @staticmethod
-    def byteArrayToCharArray(ba):
-        char_array = [ctypes.c_char] * len(ba)
-        return char_array.from_buffer(ba)
-
-    @staticmethod
-    def string_into_c_byte_array(str, cba):
-        n = 0
-        for c in str:
-            cba[n] = ord(c)
-            n += 1
-
-    def scan_and_connect(self):
-        # Clear any cached data because both bluez and CoreBluetooth have issues with
-        # caching data and it going stale.
-        self.ble.clear_cached_data()
-
-        # Get the first available BLE network adapter and make sure it's powered on.
-        self.adapter = self.ble.get_default_adapter()
-        self.adapter.power_on()
-        # print('Using adapter: {0}'.format(self.adapter.name))
-
-        # Disconnect any currently connected devices.
-        # Good for cleaning up and starting from a fresh state.
-        print('Disconnecting any connected robots..')
-        self.ble.disconnect_devices(WW_SERVICE_IDS)
-
-        # Scan for WW devices.
+    async def scan_and_connect(self):
+        # Scan for WW devices
         filter_types = "(all)"
         if self._args.connect_type is not None:
             filter_types = ', '.join(self._args.connect_type)
         filter_names = "(any)"
         if self._args.connect_name is not None:
             filter_names = ', '.join(self._args.connect_name)
-        print('Searching for robot types: %s with names: %s.' % (filter_types, filter_names))
-        try:
-            self.adapter.start_scan()
-            # Search for the first WW device found (will time out after 60 seconds
-            # but you can specify an optional timeout_sec parameter to change it).
+        print('Searching for robot types: {} with names: {}.'.format(filter_types, filter_names))
 
-            ticks_min = 5
-            ticks_max = 20
-            ticks     = 0
-            devices    = set()
-            devices_no = set()
-            while (ticks < ticks_max):
-                time.sleep(1)
-                ticks += 1
-                sys.stdout.write('\rmatching robots: %d  non-matching robots: %d %s%s' %
-                                 (len(devices), len(devices_no), '.' * ticks, ' ' * 8))
-                sys.stdout.flush()
-                for d in self.ble.find_devices(service_uuids=WW_SERVICE_IDS):
-                    rob = WWRobot(d)
+        # Bleak requires scanning with a timeout
+        ticks_min = 5
+        ticks_max = 20
+        ticks = 0
+        devices: dict[str, ScanResults] = {}
+        devices_no: dict[str, ScanResults] = {}
 
-                    # filters
-                    it_passes = True
+        scanner = BleakScanner()
 
-                    # filter by name
-                    if (self._args.connect_name is not None):
-                        p = False
-                        for n in  self._args.connect_name:
-                            if n.lower() == rob.name.lower():
-                                p = True
-                        it_passes = it_passes and p
+        while ticks < ticks_max:
+            # Scan for devices with the WW service UUIDs
+            detected_devices = await scanner.discover(timeout=1.0, return_adv=True)
+            
+            for scanned_device, advertisement_data in detected_devices.values():
+                # Check if device has any of the WW service UUIDs
+                service_uuids = advertisement_data.service_uuids
+                has_ww_service = any(
+                    str(uuid.UUID(service_uuid)).lower() == str(ww_uuid).lower()
+                    for service_uuid in service_uuids
+                    for ww_uuid in WW_SERVICE_IDS
+                )
+                
+                if not has_ww_service:
+                    continue
 
-                    # filter by type
-                    if (self._args.connect_type is not None):
-                        p = False
-                        for t in self._args.connect_type:
-                            t = t.lower()
-                            if t == "cue":
-                                rt = WWRobotConstants.RobotType.WW_ROBOT_CUE
-                            elif t == "dash":
-                                rt = WWRobotConstants.RobotType.WW_ROBOT_DASH
-                            elif t == "dot":
-                                rt = WWRobotConstants.RobotType.WW_ROBOT_DOT
-                            else:
-                                raise RuntimeError("unhandled robot type option: %s" % (t))
+                # Try to create a WWRobot from the detected device
+                # We need to connect temporarily to get device info
+                try:
+                    async with BleakClient(scanned_device.address, timeout=30) as temp_client:
+                        rob = robot_from_device((scanned_device, advertisement_data))
+                        
+                        # Apply filters
+                        it_passes = True
 
-                            if rob.robot_type == rt:
-                                p = True
+                        # Filter by name
+                        if self._args.connect_name is not None:
+                            p = False
+                            for n in self._args.connect_name:
+                                if n.lower() == rob.name.lower():
+                                    p = True
+                            it_passes = it_passes and p
 
-                        it_passes = it_passes and p
+                        # Filter by type
+                        if self._args.connect_type is not None:
+                            p = False
+                            for t in self._args.connect_type:
+                                t = t.lower()
+                                if t == "cue":
+                                    rt = WWRobotConstants.RobotType.WW_ROBOT_CUE
+                                elif t == "dash":
+                                    rt = WWRobotConstants.RobotType.WW_ROBOT_DASH
+                                elif t == "dot":
+                                    rt = WWRobotConstants.RobotType.WW_ROBOT_DOT
+                                else:
+                                    raise RuntimeError("unhandled robot type option: %s" % (t))
 
-                    if it_passes:
-                        devices.add(d)
-                    else:
-                        devices_no.add(d)
+                                if rob.robot_type == rt:
+                                    p = True
 
-                    try_right_now = False
-                    try_right_now = try_right_now or ((self._args.connect_eager  ) and (len(devices) > 0))
-                    try_right_now = try_right_now or ((ticks > ticks_min         ) and (len(devices) > 0))
-                    try_right_now = try_right_now and not self._args.connect_patient
+                            it_passes = it_passes and p
 
-                    if try_right_now:
-                        ticks = ticks_max
+                        if it_passes:
+                            devices[str(scanned_device)] = (scanned_device, advertisement_data)
+                        else:
+                            devices_no[str(scanned_device)] = (scanned_device, advertisement_data)
+                except Exception:
+                    # If we can't connect, skip this device for now
+                    raise
 
-            sys.stdout.write('\r')
+            ticks += 1
+            sys.stdout.write('\rmatching robots: %d  non-matching robots: %d %s%s' %
+                             (len(devices), len(devices_no), '.' * ticks, ' ' * 8))
+            sys.stdout.flush()
 
-        finally:
-            # Make sure scanning is stopped before exiting.
-            self.adapter.stop_scan()
+            try_right_now = False
+            try_right_now = try_right_now or ((self._args.connect_eager) and (len(devices) > 0))
+            try_right_now = try_right_now or ((ticks > ticks_min) and (len(devices) > 0))
+            try_right_now = try_right_now and not self._args.connect_patient
+
+            if try_right_now:
+                ticks = ticks_max
 
         if len(devices_no) > 0:
             sys.stdout.write("found but skipping: ")
             delim = ""
-            for d in devices_no:
-                r = WWRobot(d)
-                sys.stdout.write("%s%s '%s'" % (delim, r.robot_type_name, r.name))
+            for d in devices_no.values():
+                r = robot_from_device(d)
+                sys.stdout.write("{}{} '{}'".format(delim, r.robot_type_name, r.name))
                 delim = ', '
             sys.stdout.write('.\n')
 
-        device = None
         sys.stdout.write('\n')
         sys.stdout.flush()
 
-
         if len(devices) == 0:
             print("no suitable robots found!")
-            quit()
+            sys.exit(1)
 
-        # find device with loudest signal
-        loudest_device = None
-        for d in devices:
-            if (loudest_device is None) or (d.rssi_last > loudest_device.rssi_last):
-                loudest_device = d
+        # Find device with strongest signal (highest RSSI)
+        loudest_device: Optional[ScanResults] = None
+        for d, data in devices.values():
+            if loudest_device is None or data.rssi > loudest_device[1].rssi:
+                loudest_device = (d, data)
+
+        device: Optional[ScanResults] = None
 
         if len(devices) == 1:
-            device = devices.pop()
+            device = next(iter(devices.values())) 
         else:
             if self._args.connect_ask:
                 print("Suitable robots:")
                 map = {}
-                for d in devices:
-                    r = WWRobot(d)
+                for d in devices.values():
+                    r = robot_from_device(d)
                     n = len(map) + 1
                     map[str(n)] = d
-                    icon = u'📶' if d == loudest_device else u'⏹'
+                    icon = '📶' if d == loudest_device else '⏹'
                     print("%2d. %s %14s '%s'" % (n, icon, r.robot_type_name, r.name))
 
                 device = None
                 while device is None:
-                    user_choice = raw_input("Enter [%d - %d]: " % (1, len(devices)))
+                    user_choice = input("Enter [%d - %d]: " % (1, len(devices)))
                     if user_choice in map:
                         device = map[user_choice]
                     elif user_choice == '':
@@ -249,85 +213,56 @@ class WWBTLEManager(object):
                         print("bzzzt")
             else:
                 device = loudest_device
-
                 print("found %d suitable robots, choosing the best signal" % (len(devices)))
 
-        self.robot = WWRobot(device)
-        self.robot._sendJson = self.sendJson
+        if device is None:
+            print("no suitable robots found!")
+            sys.exit(1)
+
+        self.robot = robot_from_device(device)
+        # Create a wrapper to call async sendJson from sync context
+        def sync_sendJson(json_dict):
+            asyncio.create_task(self.sendJson(json_dict))
+        self.robot._sendJson = sync_sendJson
 
         print('Connecting to ' + self.robot.robot_type_name + ' "%s"' % (self.robot.name))
 
-        # Will time out after 60 seconds, specify timeout_sec parameter to change the timeout.
-        device.connect()
+        # Connect to the device
+        self.client = BleakClient(device[0].address)
+        await self.client.connect()
 
-        # Wait for service discovery to complete for at least the specified
-        # service and characteristic UUID lists.  Will time out after 60 seconds
-        # (specify timeout_sec parameter to override).
-        # print('Discovering services...')
-        device.discover(WW_SERVICE_IDS, [CHAR_UUID_CMD, CHAR_UUID_SENSOR0, CHAR_UUID_SENSOR1])
+        await self._send_connection_interval_renegotiation()
 
-        # Find the WW service and its characteristics.
-        dService = None
-        if dService is None:
-            dService = device.find_service(WW_SERVICE_UUID_D1)
-        if dService is None:
-            dService = device.find_service(WW_SERVICE_UUID_D2)
-        if dService is None:
-            raise WWException("could not find expected serviceID")
+        # Setup notification callbacks
+        def on_data_sensor(sender: BleakGATTCharacteristic, data: bytearray):
+            assert self.robot is not None
+            new_sensor_data = None
+ 
+            if uuid.UUID(sender.uuid) == CHAR_UUID_SENSOR0:
+                if not self.robot.expect_sensor_packet_2:
+                    new_sensor_data = dot_sensor_decode(data)
+                else:
+                    self.robot._sensor_packet_1 = data
+            else:
+                if self.robot._sensor_packet_1 is not None:
+                    new_sensor_data = dot_sensor_decode(self.robot._sensor_packet_1)
+                    new_sensor_data.update(dash_sensor_decode(self.robot._sensor_packet_1, data))
+                    self.robot._sensor_packet_1 = None
 
-        self.char_cmd     = dService.find_characteristic(CHAR_UUID_CMD)
-        self.char_sensor0 = dService.find_characteristic(CHAR_UUID_SENSOR0)
-        self.char_sensor1 = dService.find_characteristic(CHAR_UUID_SENSOR1)
+            if new_sensor_data is not None:
+                self.robot._parse_sensors(new_sensor_data)
+                if hasattr(self.delegate, 'on_sensors') and callable(getattr(self.delegate, 'on_sensors')):
+                    wwMain.thread_local_data.in_on_sensors = True
+                    self.delegate.on_sensors(self.robot)
+                    wwMain.thread_local_data.in_on_sensors = False
 
-        self._send_connection_interval_renegotiation()
+            # actually send the commands which have queued up via stage_foo()
+            self.robot.send_staged()
 
-        # print('Discovering services...')
-        # DeviceInformation.discover(device)
-
-        # Once service discovery is complete create an instance of the service
-        # and start interacting with it.
-
-        def cp_data_into_c_byte_array(dst, src):
-            n = 0
-            for c in src:
-                dst[n] = ord(c)
-
-        # Function to receive RX characteristic changes.  Note that this will
-        # be called on a different thread so be careful to make sure state that
-        # the function changes is thread safe.  Use queue or other thread-safe
-        # primitives to send data to other threads.
-        def on_data_sensor0(data):
-            self.robot._sensor_packet_1 = data
-            if not self.robot.expect_sensor_packet_2:
-                p1 = self.robot._sensor_packet_1
-                pw = WWBTLEManager.two_packet_wrappers()
-                WWBTLEManager.string_into_c_byte_array(self.robot._sensor_packet_1, pw.packet1_bytes)
-                pw.packet1_bytes_num = len(p1)
-                pw.packet2_bytes_num =      0
-                json_string = self.libHAL.packets2Json(pw)
-                self._sensor_queue.put(json.loads(json_string))
-                self.robot._sensor_packet_1 = None
-
-        def on_data_sensor1(data):
-            self.robot._sensor_packet_2 = data
-            if self.robot._sensor_packet_1 is not None:
-                p1 = self.robot._sensor_packet_1
-                p2 = self.robot._sensor_packet_2
-                pw = WWBTLEManager.two_packet_wrappers()
-                WWBTLEManager.string_into_c_byte_array(self.robot._sensor_packet_1, pw.packet1_bytes)
-                pw.packet1_bytes_num = len(p1)
-                WWBTLEManager.string_into_c_byte_array(self.robot._sensor_packet_2, pw.packet2_bytes)
-                pw.packet2_bytes_num = len(p2)
-                json_string = self.libHAL.packets2Json(pw)
-                self._sensor_queue.put(json.loads(json_string))
-                self.robot._sensor_packet_1 = None
-                self.robot._sensor_packet_2 = None
-
-        # Turn on notification of RX characteristics using the callback above.
-        # print('Subscribing to characteristics...')
-        self.char_sensor0.start_notify(on_data_sensor0)
+        # Start notifications
+        await self.client.start_notify(CHAR_UUID_SENSOR0, on_data_sensor)
         if self.robot.expect_sensor_packet_2:
-            self.char_sensor1.start_notify(on_data_sensor1)
+            await self.client.start_notify(CHAR_UUID_SENSOR1, on_data_sensor)
 
         print('Connected to \'%s\'!' % (self.robot.name))
 
@@ -336,45 +271,37 @@ class WWBTLEManager(object):
             self.delegate.on_connect(self.robot)
             wwMain.thread_local_data.in_on_connect = False
 
-        while True:
-            # blocks until there's something in the queue
-            jsonDict = self._sensor_queue.get()
-            self.robot._parse_sensors(jsonDict)
-            # todo oxe: this delegate should be on the robot
+        try:
+            while True:
+                await asyncio.sleep(1)
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            sys.stdout.write('Stopping...\n')
+            sys.stdout.flush()
+    
+        finally:
+            await self.client.stop_notify(CHAR_UUID_SENSOR0)
+            if self.robot.expect_sensor_packet_2:
+                await self.client.stop_notify(CHAR_UUID_SENSOR1)
+            await self.client.disconnect()
 
-            if hasattr(self.delegate, 'on_sensors') and callable(getattr(self.delegate, 'on_sensors')):
-                wwMain.thread_local_data.in_on_sensors = True
-                self.delegate.on_sensors(self.robot)
-                wwMain.thread_local_data.in_on_sensors = False
-
-            # actually send the commands which have queued up via stage_foo()
-            self.robot.send_staged()
-
-    def _send_connection_interval_renegotiation(self):
+    async def _send_connection_interval_renegotiation(self):
+        assert self.client is not None
         # print('Sending renegotiation request for %dms' % (CONNECTION_INTERVAL_MS))
         ba = bytearray(3)
         ba[0] = 0xc9
         ba[1] = CONNECTION_INTERVAL_MS
         ba[2] = CONNECTION_INTERVAL_MS
-        self.char_cmd.write_value(ba)
+        await self.client.write_gatt_char(CHAR_UUID_CMD, ba)
 
-    def sendJson(self, dict):
-        if (len(dict) == 0):
+    async def sendJson(self, cmd_dict):
+        assert self.client is not None
+        if len(cmd_dict) == 0:
             return
 
-        json_str = json.dumps(dict)
-
-        packets = WWBTLEManager.two_packet_wrappers()
-
-        self.libHAL.json2Packets(json_str, ctypes.byref(packets))
-
-        if (packets.packet1_bytes_num > 0):
-            self.char_cmd.write_value(packets.packet1_bytes)
-        if (packets.packet2_bytes_num > 0):
-            self.char_cmd.write_value(packets.packet2_bytes)
+        packets = encode_cmd(cmd_dict)
+        for packet in packets:
+            await self.client.write_gatt_char(CHAR_UUID_CMD, packet)
 
     def run(self):
-        # Start the mainloop to process BLE events, and run the provided function in
-        # a background thread.  When the provided main function stops running, returns
-        # an integer status code, or throws an error the program will exit.
-        self.ble.run_mainloop_with(self.scan_and_connect)
+        # Run the async scan_and_connect method using asyncio
+        asyncio.run(self.scan_and_connect())

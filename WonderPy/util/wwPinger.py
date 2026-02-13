@@ -6,7 +6,7 @@ from datetime import datetime
 # the robot calls tick() after processing each sensor payload.
 
 
-class WWPinger(object):
+class WWPinger:
     def __init__(self, robot):
         self.active                  = False
         self._outstanding_id         = None

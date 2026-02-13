@@ -5,18 +5,18 @@ _rc  = WWRobotConstants.RobotComponent
 _rcv = WWRobotConstants.RobotComponentValues
 
 
-class WWCommandPing(WWCommandBase):
+class wwCommandNew(WWCommandBase):
 
     def __init__(self, robot):
         super().__init__(robot)
 
-    def stage_ping(self, ping_id):
-        self._robot.stage_cmds(self.compose_ping(ping_id))
+    def stage_power(self, power_action: int):
+        self._robot.stage_cmds(self.compose_power(power_action))
 
-    def compose_ping(self, ping_id):
+    def compose_power(self, power_action: int):
         ret = {
-            _rc.WW_COMMAND_SET_PING : {
-                _rcv.WW_COMMAND_VALUE_PING_ID : ping_id
+            _rc.WW_COMMAND_POWER : {
+                power_action
             }
         }
         return ret

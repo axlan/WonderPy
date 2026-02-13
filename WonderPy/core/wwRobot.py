@@ -1,10 +1,7 @@
 import time
-import sys
 
-if sys.version_info > (3, 0):
-    import queue
-else:
-    import Queue as queue
+import queue
+from typing import Optional
 
 from WonderPy.core.wwConstants import WWRobotConstants
 from WonderPy.core.wwCommands import WWCommands
@@ -20,14 +17,14 @@ def reverse_lookup(table, value):
 _rc = WWRobotConstants.RobotComponent
 
 
-class WWRobot(object):
+class WWRobot:
 
-    def __init__(self, btleDevice):
-        self._btleDevice = btleDevice
+    def __init__(self, manufacturerData: bytes, name: str):
+        self._name = name
 
         # note: device.manufacturerData is only present when ADAFruit has been patched
         #       with this: https://github.com/adafruit/Adafruit_Python_BluefruitLE/pull/33
-        self.parseManufacturerData(btleDevice.manufacturerData)
+        self.parseManufacturerData(manufacturerData)
 
         self._command_queue = queue.Queue()
 
@@ -37,8 +34,7 @@ class WWRobot(object):
         self._sensors           = WWSensors (self)
         self._commands          = WWCommands(self)
 
-        self._sensor_packet_1 = None
-        self._sensor_packet_2 = None
+        self._sensor_packet_1: Optional[bytes] = None
 
         rt = WWRobotConstants.RobotType
         self._expect_sensor_packet_2 = self.robot_type in {rt.WW_ROBOT_DASH, rt.WW_ROBOT_CUE}
@@ -58,7 +54,7 @@ class WWRobot(object):
 
     @property
     def name(self):
-        return self._btleDevice.name
+        return self._name
 
     @property
     def robot_type(self):
@@ -114,19 +110,26 @@ class WWRobot(object):
     def sensor_count(self):
         return self._sensor_count
 
-    def parseManufacturerData(self, manuData):
+    def parseManufacturerData(self, manuData: bytes):
         """parse the manufacturer data portion of the BTLE advertisement"""
+
+        # NOTE: In testing with a Dash DA01, I see manufacture data:
+        # b'\x01\x02\x03\x00\x07z\x0c\x00\x00\x00\x00\x00\x00\x00#\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+        # This would be a Dot DFU in BL mode. Since its a Dash, this mapping may be inaccurate.
+        # It's also possible there's some difference I don't understand in how this data is handled in Bleak vs Adafruit_BluefruitLE. 
 
         self._robot_type = WWRobotConstants.RobotType.WW_ROBOT_UNKNOWN
         self._sendJson   = None
         self._mode       = WWRobotConstants.RobotMode.ROBOT_MODE_UNKNOWN
 
-        if not manuData:
+        if len(manuData) < 2:
             print("error: no manufacturer data. robot: %s" % (self.name))
             return
 
         self._mode       = manuData[0] & 0x03
-        self._robot_type = WWRobot.robot_type_from_manufacturer_data(manuData)
+        # HACK: Just forcing to type Dash for now since not sure why it's not matching expected values
+        self._robot_type = WWRobotConstants.RobotType.WW_ROBOT_DASH
+        # self._robot_type = WWRobot.robot_type_from_manufacturer_data(manuData)
 
     @staticmethod
     def robot_type_from_manufacturer_data(manu_data):
@@ -227,6 +230,6 @@ class WWRobot(object):
 
         ret = self.robot_type in rav[ability]
         if log_if_no and not ret:
-            print("Robot '%s' does not have the ability '%s'" % (self.name, ability))
+            print("Robot '{}' does not have the ability '{}'".format(self.name, ability))
 
         return ret

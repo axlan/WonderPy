@@ -7,14 +7,13 @@ _expected_json_fields = (
     # the beacon sensor is a bit special, as we may invent empty ones.
 )
 import sys
-if sys.version_info > (3,):
-    xrange = range
+xrange = range
 
 
 class WWSensorBeacon(WWSensorBase):
 
     def __init__(self, robot):
-        super(WWSensorBeacon, self).__init__(robot)
+        super().__init__(robot)
         self._robot_type_left_raw  = None
         self._robot_type_right_raw = None
         self._robot_type_left      = None
@@ -115,7 +114,7 @@ class WWSensorBeacon(WWSensorBase):
         else:
             return _rt.WW_ROBOT_UNKNOWN
 
-    class BeaconFilter(object):
+    class BeaconFilter:
         def __init__(self):
             self._data_buffer       = [None] * 1
             self._data_buffer_index = 0
@@ -158,7 +157,7 @@ class WWSensorBeacon(WWSensorBase):
 class WWSensorBeaconV2(WWSensorBase):
     # For now, just use this to keep track of Beacon IDs
     def __init__(self, robot):
-        super(WWSensorBeaconV2, self).__init__(robot)
+        super().__init__(robot)
         self._robot_id_raw = None
        
     @property

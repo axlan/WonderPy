@@ -18,8 +18,8 @@ class MyTestCase(unittest.TestCase):
         robot.sensors.parse(packet)
         sensors = robot.sensors
 
-        self.assertAlmostEquals(sensors.head_pan .degrees,  1.2)
-        self.assertAlmostEquals(sensors.head_tilt.degrees, -3.4)
+        self.assertAlmostEqual(sensors.head_pan .degrees,  1.2)
+        self.assertAlmostEqual(sensors.head_tilt.degrees, -3.4)
 
 
 if __name__ == '__main__':

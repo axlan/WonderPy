@@ -10,7 +10,7 @@ _expected_json_fields = (
 class WWSensorAngle(WWSensorBase):
 
     def __init__(self, robot, fn_unit_converter):
-        super(WWSensorAngle, self).__init__(robot)
+        super().__init__(robot)
         self._degrees          = None
         self._fn_unit_converter = fn_unit_converter
 

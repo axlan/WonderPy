@@ -10,7 +10,7 @@ _rcv = WWRobotConstants.RobotComponentValues
 class WWCommandMedia(WWCommandBase):
 
     def __init__(self, robot):
-        super(WWCommandMedia, self).__init__(robot)
+        super().__init__(robot)
 
     @do_not_call_within_connect_or_sensors
     def do_audio(self, filename, volume=1.0, timeout=None):

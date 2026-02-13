@@ -4,9 +4,9 @@ from svgpathtools import svg2paths
 import math
 
 
-class WWSVG(object):
+class WWSVG:
 
-    class ListOfListsOfPoints(object):
+    class ListOfListsOfPoints:
         def __init__(self):
             self.data = []
 

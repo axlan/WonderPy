@@ -1,173 +1,71 @@
-# WonderPy
+# Unofficial WonderPy Port
 
-WonderPy is a Python package providing an interface to the WonderWorkshop robots Dash, Dot, and Cue.  It has fine-grained realtime access to all the robot's commands and sensors.  There is a companion repository with tutorials and examples.
+See <https://github.com/playi/WonderPy/blob/master/README.md> for the original documentation.
 
-To get the most out of WonderPy, you should already have a beginner-level comfort with python and the command-line.
+This is an unofficial port that reverse engineers the JSON to binary protocol. 
 
-# Project Status
-[![Build status](https://travis-ci.org/playi/WonderPy.svg?master)](https://travis-ci.org/playi)
+See: <https://www.robopenguins.com/reverse-dash/> for a blog post of my approach 
 
-WonderPy is current at an "Alpha" release. It's ready to be tried out by folks who are willing to live with a few more rough-edges than one would want, and ideally who can provide constructive criticism.  
+See: [ReversingDylib.md](doc/reversing/ReversingDylib.md) for reverse engineering notes.
 
-Please see the ["Issues" in github](https://github.com/playi/WonderPy/issues) for an up-to-date list of known bugs and to-do items.  
+For the supported commands and sensors, the interface should be exactly the same as with the original library.
 
-* Command Categories:
-	* eyering
-	* head
-	* media
-	* monoLED
-	* body
-	* RGB
-	* accessory
-* Sensor Categories:
-	* accelerometer / gyroscope
-	* beacon
-	* buttons
-	* distance
-	* head angles
-	* pose
-	* speaker
-	* wheels
-
+I'm only testing on a Dash, so it's likely that some features will not work properly for other bots without some tweaking.
 
 # Setup
 ## Prerequisites
-1. MacOS
-2. Python 2.7
-3. Familiarity with python and the command-line
+1. Python 3.9+
+2. Familiarity with python and the command-line
 
+## pip
 
-## Install hard dependencies
-All of these are *required*.
+See the original instructions for setting up a virtual environment if desired.
 
-1. **pip**  
-`pip` is the standard package manager for python. It's used to install packages such as WonderPy and AdaFruit BLE, below.  
-It can be tempting to skip installing this, but unfortunately it is required.  
-Installing pip tends to vary significantly from system to system, so we can't provide specific instructions it.  The best we can do is refer you to google to find the best match for your situation.  Here's [Google on the topic](https://www.google.com/search?q=how+to+install+pip).
-
-2. **VirtualEnv**  
-  VirtualEnv is a system which enables you to be sure which version of Python you're running for WonderPy, and which packages are present.  
-      
-  `pip install virtualenv`  
-    
-  Depending on how you installed pip, you may need to  
-  `sudo pip install virtualenv`
-
-3. **XCode Command Line Tools**
-  `xcode-select --install`
-
-  You may need to install XCode, visit the [Apple Developer site](https://developer.apple.com/download/more) and search for "Command Line Tools". Then download and install the appropriate file based on your version of macOS and XCode.
-
-  Some users may need to uninstall/reinstall Python 2.x afterwards, depending on their setup. (Since there are many ways python is installed, we don't provide instructions for that here)
-  
-4. **AdaFruit Python BTLE Package**  
-  The AdaFruit BTLE package is not hosted on PyPi, which makes it difficult to automatically install when this package is installed via pip. Additionally, this project requires a fork of that project by WonderWorkshop, which as of this writing has not been merged back into the main project.  
-  `pip install git+git://github.com/playi/Adafruit_Python_BluefruitLE@928669a#egg=Adafruit_BluefruitLE`
-
-## Create a new python virtual environment
-1. `virtualenv --python=/usr/bin/python2.7 --no-site-packages venv`
-2. `source venv/bin/activate`
-
-## Install WonderPy
-`pip install WonderPy`
-
-# Documentation
-Documentation is still also in Alpha stage.
-
-* [WonderPy readme](https://github.com/playi/WonderPy/blob/master/README.md)
-
-* [WonderPy Robot Reference Manual](https://github.com/playi/WonderPy/blob/master/doc/WonderPy.md)
-
-* [Tutorials and other examples](https://github.com/playi/WonderPyExamples)
-
-# Getting Started
-The steps above install the core library.  
-There are many examples of using it separately in the github repository [playi/WonderPyExamples](https://github.com/playi/WonderPyExamples).  
-**It is *highly* recommended to look at those examples.**
-
-To test basic functionality, run these at the command-line, inside your fresh virtualenv:  
-
-download the "01\_hello\_world.py" tutorial example:  
-`curl -o 01_hello_world.py https://raw.githubusercontent.com/playi/WonderPyExamples/master/tutorial/01_hello_world.py`  
-
-run it:  
-`python 01_hello_world.py`
-
-It should connect to any nearby robot and say hello !
-
-## Robot Connection Options
-Upon launching any of the examples, the app will scan for robots for at least 5 and at most 20 seconds.  After scanning, whichever robot had the highest signal strength (RSSI) will be connected to.  This is a reasonable approximation of connecting to the closest robot.
-
-### Connection Options:
+```sh
+pip install -r requirements.txt
+pip install .
 ```
-[--connect-type cue | dot | dash]
-  filter for robots of the specified type/s
 
-[--connect-name MY_ROBOT | MY_OTHER_ROBOT | ...]
-  filter for robots with the specified name/s
-  
-[--connect-eager]
-  connect as soon as a qualified robot is discovered.  
-  do not wait the full scanning period.
-  if there are more than one robot with matching criteria,
-  the one with the best signal is still selected
-  
-[--connect-ask]  
-  show a list of available robots, and interactively ask for input.
-  indicates which has the highest signal strength.
-  
-``` 
+## uv
 
-### Connection  Examples:
-* Spend 5 seconds looking for all Cue and Dash robots which are named either "sammy" or "sally", and connect to the one with the best signal strength:  
-`python demos/roboFun.py --connect-type cue dash --connect-name sammy blippy sally`  
+You can use <https://docs.astral.sh/uv/> with this library
 
-* Connect ASAP to any robot named 'orions robot', no matter what type of robot it is.  
-`python demos/roboFun.py --connect-eager --connect-name "orions robot"`  
+```sh
+uv sync
+```
 
-# Known Issues and To-Do's
-Please see the ["Issues" in github](https://github.com/playi/WonderPy/issues) for an up-to-date list of known bugs and to-do items.  
-As of this writing, the open issues are:
+# Known Issues
+ - The manufacturer info reported by the BlueTooth client does not have the bytes the original library expected for a Dash robot. It's unclear if this has to do with switching the underlying BlueTooth stack, or is a change in the BlueTooth interface the bot's used after this Python library was made. **Currently the hardware type is hard coded to be a Dash bot**
+ - Sometimes the initial connection after Linux restarts fails. I'm not sure if this is a timeout or what. Retrying succeeds.
+ - Many of the commands and sensors haven't been implemented. Some of these are due to specific issues, but mostly these are due to a lack of time to reverse engineer them all. See the list below.
 
-* Only works with a single robot.
-* Only works with Python2.7.  
-  The limiting factor here is getting the AdaFruit BTLE package to run under Python3. There's evidence this is possible.
-* Once under Python3, update the concurrency model.
-* Flesh-out inline documentation.
-* Make the pip installation more standard.
-  Currently this requires a manual install of a github-based fork of the AdaFruit package.
-* Port to Windows, Linux
+## Feature Status
 
-# Feedback - Survey
-How is WonderPy working for you ? We're eager to hear.  
-Please take time to [fill out a survey](https://www.surveymonkey.com/r/8KPTT3W)!   
+Commands
+ - pose ✅ Mostly working. Didn't implement some logic for resetting global origin. May have some issues with accumulating error around relative angle commands.
+ - RGB Lights ✅
+ - Speaker ❔ Same functionality as original library. This does not include uploading custom sounds
+ - Power ❔ Implemented, but didn't experiment with values
+ - Head Pan/Tilt ❔ Only implemented position commands
+ - Eye Ring Lights/Animation 🛑 Didn't attempt, but should be doable
+ - Launcher 🛑 Didn't attempt, but should be doable
+ - Low Level Wheel Control 🛑 Didn't attempt, but should be doable
+ - Robot Animation 🛑 Didn't attempt, but should be doable
 
-# Contribute
-Pull requests are welcome!  
-Please check the list of issues and todo's at the [WonderPy repository on github](https://github.com/playi/WonderPy/issues).  
+Sensors
+ - Buttons ✅
+ - Head Pan/Tilt ✅
+ - Pose ✅ This includes the "watermark" to determine how many movement commands are queued
+ - Accelerometer ✅
+ - Gyro ✅
+ - Distance Sensors ❔ The raw values are captured, but the original library used the dylib to convert the values to distance in cm. This would be fairly complicated to extract, and would probably be better done from scratch.
+ - Wheel Encoders ✅
+ - Picked Up ✅
+ - Bump Stall ✅
+ - Sound Playing ✅
+ - Animation Playing ✅
+ - Microphone ❔ I made an attempt at reversing this from the dylib. The amplitude and direction sort of worked, but not the confidence. Also, this value isn't actually surfaced in the API.
+ - Battery 🛑 Didn't attempt, is complicated by device specific variations
+ - Beacons 🛑 Didn't attempt, is complicated by device specific variations
 
-Additional examples in the [WonderPyExamples repository](https://github.com/playi/WonderPyExamples) would also be great:
-
-* Integrations with other cool packages
-* IoT integrations
-* Demos with the Sketch Kit accessory
-
-Feature requests for the API should be sent as [new Issues in github](https://github.com/playi/WonderPy/issues).  
-
-# Get Help
-### Report Bugs
-If there's a specific bug or problem with the API, please check the [outstanding issues in github](https://github.com/playi/WonderPy/issues) and if it's not already covered, create a new one.  
-
-### Ask for Advice
-If you have a more general question such as "how would I approach doing .." or you have a tip you'd like to share, please visit [stackoverflow](https://stackoverflow.com/) and be sure to tag your post with **wonderworkshop**.
-
-### Request Features
-Feature requests for the API should be sent as [new Issues in github](https://github.com/playi/WonderPy/issues).  
-
-
-# Sharing your work ?
-Made something cool ? We'd love to see it !  
-Send your photos, videos, and links to developers@makewonder.com .
-
-( Note, we can't promise a reply to all emails )
-
+The original Python library had many features that were referenced, but not fully implemented. Other features were reference in the dylib, but not the Python code. The remaining functionality could probably be found by spying on the BlueTooth traffic, but I'm not planning to look into that.
