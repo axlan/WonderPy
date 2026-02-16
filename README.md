@@ -34,6 +34,14 @@ You can use <https://docs.astral.sh/uv/> with this library
 uv sync
 ```
 
+# Synchronization
+
+The original implementation ran the BLE handling in an event loop which needed any commands to be sent from separate threads. Since Bleak uses asyncio, I had a few options in how I want to handle scheduling the BLE actions.
+
+Making the whole library async would probably be the most flexible option, but that adds a lot of complexity to the end user.
+
+Instead I've decided to hide the async as an implementation detail. This does mean that blocking calls need to be run from a separate thread instead of being able to use an await. However, the user code can still be written in an async manner by making the sensor callbacks async.
+
 # Known Issues
  - Sometimes the initial connection after Linux restarts fails. I'm not sure if this is a timeout or what. Retrying succeeds.
  - Many of the commands and sensors haven't been implemented. Some of these are due to specific issues, but mostly these are due to a lack of time to reverse engineer them all. See the list below.

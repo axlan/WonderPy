@@ -67,7 +67,6 @@ class WWBTLEManager:
         self.robot:Optional[WWRobot] = None
 
         self.client: Optional[BleakClient] = None
-        self.loop = None
 
     @staticmethod
     def setup_argument_parser(parser):
@@ -229,9 +228,11 @@ class WWBTLEManager:
             sys.exit(1)
 
         self.robot = robot_from_device(device)
+        loop = asyncio.get_running_loop()
         # Create a wrapper to call async sendJson from sync context
         def sync_sendJson(json_dict):
-            asyncio.create_task(self.sendJson(json_dict))
+            # NOTE: The caller does not block for this to complete.
+            asyncio.run_coroutine_threadsafe(self.sendJson(json_dict), loop)
         self.robot._sendJson = sync_sendJson
 
         print('Connecting to ' + self.robot.robot_type_name + ' "%s"' % (self.robot.name))
@@ -243,7 +244,7 @@ class WWBTLEManager:
         await self._send_connection_interval_renegotiation()
 
         # Setup notification callbacks
-        def on_data_sensor(sender: BleakGATTCharacteristic, data: bytearray):
+        async def on_data_sensor(sender: BleakGATTCharacteristic, data: bytearray):
             assert self.robot is not None
             new_sensor_data = None
  
@@ -260,9 +261,12 @@ class WWBTLEManager:
 
             if new_sensor_data is not None:
                 self.robot._parse_sensors(new_sensor_data)
-                if hasattr(self.delegate, 'on_sensors') and callable(getattr(self.delegate, 'on_sensors')):
+                if hasattr(self.delegate, 'on_sensors'):
                     wwMain.thread_local_data.in_on_sensors = True
-                    self.delegate.on_sensors(self.robot)
+                    if asyncio.iscoroutinefunction(self.delegate.on_sensors):
+                        await self.delegate.on_sensors(self.robot)
+                    elif callable(self.delegate.on_sensors):
+                        self.delegate.on_sensors(self.robot)
                     wwMain.thread_local_data.in_on_sensors = False
 
             # actually send the commands which have queued up via stage_foo()
@@ -275,9 +279,12 @@ class WWBTLEManager:
 
         print('Connected to \'%s\'!' % (self.robot.name))
 
-        if hasattr(self.delegate, 'on_connect') and callable(getattr(self.delegate, 'on_connect')):
+        if hasattr(self.delegate, 'on_connect'):
             wwMain.thread_local_data.in_on_connect = True
-            self.delegate.on_connect(self.robot)
+            if asyncio.iscoroutinefunction(self.delegate.on_connect):
+                await self.delegate.on_connect(self.robot)
+            elif callable(self.delegate.on_connect):
+                self.delegate.on_connect(self.robot)
             wwMain.thread_local_data.in_on_connect = False
 
         try:
