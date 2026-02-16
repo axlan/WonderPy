@@ -35,7 +35,6 @@ uv sync
 ```
 
 # Known Issues
- - The manufacturer info reported by the BlueTooth client does not have the bytes the original library expected for a Dash robot. It's unclear if this has to do with switching the underlying BlueTooth stack, or is a change in the BlueTooth interface the bot's used after this Python library was made. **Currently the hardware type is hard coded to be a Dash bot**
  - Sometimes the initial connection after Linux restarts fails. I'm not sure if this is a timeout or what. Retrying succeeds.
  - Many of the commands and sensors haven't been implemented. Some of these are due to specific issues, but mostly these are due to a lack of time to reverse engineer them all. See the list below.
 

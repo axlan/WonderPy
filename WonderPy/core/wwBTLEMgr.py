@@ -3,6 +3,7 @@ import uuid
 import sys
 import argparse
 import asyncio
+import struct
 
 from bleak import BleakScanner, BleakClient
 from bleak.backends.device import BLEDevice
@@ -22,7 +23,15 @@ ScanResults = tuple[BLEDevice, AdvertisementData]
 
 def robot_from_device(result: ScanResults) -> WWRobot:
     name = result[0].name if result[0].name else ''
-    data = result[1].manufacturer_data[WWRobotConstants.WW_BLE_MANUFACTURER_ID] if WWRobotConstants.WW_BLE_MANUFACTURER_ID in result[1].manufacturer_data else bytes()
+    # Usually the manufacturer data is a key for the manufacturer's official Bluetooth ID:
+    # https://www.bluetooth.com/specifications/assigned-numbers/company-identifiers/
+    # Instead, these bots use the key to store data. In fact, all the relevant data for
+    # identifying the bot is in this key.
+    if len(result[1].manufacturer_data) == 1:
+        key = next(iter(result[1].manufacturer_data))
+        data = struct.pack('<H', key)
+    else:
+        data = b''
     return WWRobot(data, name) 
 
 # Define service and characteristic UUIDs used by the WW devices.

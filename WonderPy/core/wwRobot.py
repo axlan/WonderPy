@@ -127,9 +127,7 @@ class WWRobot:
             return
 
         self._mode       = manuData[0] & 0x03
-        # HACK: Just forcing to type Dash for now since not sure why it's not matching expected values
-        self._robot_type = WWRobotConstants.RobotType.WW_ROBOT_DASH
-        # self._robot_type = WWRobot.robot_type_from_manufacturer_data(manuData)
+        self._robot_type = WWRobot.robot_type_from_manufacturer_data(manuData)
 
     @staticmethod
     def robot_type_from_manufacturer_data(manu_data):
