@@ -52,6 +52,7 @@ CONNECTION_INTERVAL_MS  = 12
 
 
 class WWBTLEManager:
+    bleak_loop: Optional[asyncio.AbstractEventLoop] = None
 
     def __init__(self, delegate, arguments=None):
 
@@ -83,7 +84,7 @@ class WWBTLEManager:
 
     async def scan_and_connect(self):
         # Capture the asyncio loop used for Bleak
-        wwMain.thread_local_data.bleak_loop = asyncio.get_running_loop()
+        WWBTLEManager.bleak_loop = asyncio.get_running_loop()
 
         # Scan for WW devices
         filter_types = "(all)"
@@ -234,7 +235,7 @@ class WWBTLEManager:
         # Create a wrapper to call async sendJson from sync context
         def sync_sendJson(json_dict):
             # NOTE: The caller does not block for this to complete.
-            asyncio.run_coroutine_threadsafe(self.sendJson(json_dict), wwMain.thread_local_data.bleak_loop)
+            asyncio.run_coroutine_threadsafe(self.sendJson(json_dict), self.bleak_loop) # type: ignore
         self.robot._sendJson = sync_sendJson
 
         print('Connecting to ' + self.robot.robot_type_name + ' "%s"' % (self.robot.name))
@@ -324,10 +325,10 @@ class WWBTLEManager:
         # Run the async scan_and_connect method using asyncio
         asyncio.run(self.scan_and_connect())
 
-    @staticmethod
-    def stop():
-        bleak_loop = getattr(wwMain.thread_local_data, 'bleak_loop', None)
-        if bleak_loop is not None:
+    @classmethod
+    def stop(cls):
+        if cls.bleak_loop is not None:
+            bleak_loop = cls.bleak_loop
             async def stop_task():
                 tasks = [t for t in asyncio.all_tasks(bleak_loop) if t is not asyncio.current_task()]
                 for task in tasks:
