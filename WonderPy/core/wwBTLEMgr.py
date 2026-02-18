@@ -82,6 +82,9 @@ class WWBTLEManager:
                             help='interactively ask which of the qualifying robots you\'d like to connect to')
 
     async def scan_and_connect(self):
+        # Capture the asyncio loop used for Bleak
+        wwMain.thread_local_data.bleak_loop = asyncio.get_running_loop()
+
         # Scan for WW devices
         filter_types = "(all)"
         if self._args.connect_type is not None:
@@ -228,11 +231,10 @@ class WWBTLEManager:
             sys.exit(1)
 
         self.robot = robot_from_device(device)
-        loop = asyncio.get_running_loop()
         # Create a wrapper to call async sendJson from sync context
         def sync_sendJson(json_dict):
             # NOTE: The caller does not block for this to complete.
-            asyncio.run_coroutine_threadsafe(self.sendJson(json_dict), loop)
+            asyncio.run_coroutine_threadsafe(self.sendJson(json_dict), wwMain.thread_local_data.bleak_loop)
         self.robot._sendJson = sync_sendJson
 
         print('Connecting to ' + self.robot.robot_type_name + ' "%s"' % (self.robot.name))
@@ -321,3 +323,16 @@ class WWBTLEManager:
     def run(self):
         # Run the async scan_and_connect method using asyncio
         asyncio.run(self.scan_and_connect())
+
+    @staticmethod
+    def stop():
+        bleak_loop = getattr(wwMain.thread_local_data, 'bleak_loop', None)
+        if bleak_loop is not None:
+            async def stop_task():
+                tasks = [t for t in asyncio.all_tasks(bleak_loop) if t is not asyncio.current_task()]
+                for task in tasks:
+                    task.cancel()
+
+            future = asyncio.run_coroutine_threadsafe(stop_task(), bleak_loop)
+            # Wait for tasks to be canceled.
+            future.result()

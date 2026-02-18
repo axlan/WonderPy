@@ -119,7 +119,7 @@ class WWRobot:
         # It's also possible there's some difference I don't understand in how this data is handled in Bleak vs Adafruit_BluefruitLE. 
 
         self._robot_type = WWRobotConstants.RobotType.WW_ROBOT_UNKNOWN
-        self._sendJson   = None
+        self._sendJson   = lambda json_dict: None
         self._mode       = WWRobotConstants.RobotMode.ROBOT_MODE_UNKNOWN
 
         if len(manuData) < 2:

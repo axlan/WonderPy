@@ -3,6 +3,7 @@ import struct
 from typing import Any
 
 from .wwConstants import WWRobotConstants
+from .distance_calc import DoubleExponentialDistanceCalc
 
 _rc  = WWRobotConstants.RobotComponent
 _rcv = WWRobotConstants.RobotComponentValues
@@ -256,20 +257,18 @@ def dash_sensor_decode(packet1_data: bytes, data: bytes) -> dict[str, Any]:
     # The reflectance (0-255) to a distance in cm.
     # The code for this is very opaque and would be easier to generate a new
     # model by empirically measuring for desired wall materials.
+    # Included is quick attempt at that process.
     results[_rc.WW_SENSOR_DISTANCE_FRONT_LEFT_FACING] = {
         _rcv.WW_SENSOR_VALUE_REFLECTANCE: float(data[7]),
-        # NOT AT ALL RIGHT!!!!!!!!!!!!!!!!!
-        _rcv.WW_SENSOR_VALUE_DISTANCE: float(data[7]),
+        _rcv.WW_SENSOR_VALUE_DISTANCE: DoubleExponentialDistanceCalc.reflect_to_distance_cm(float(data[7])),
     }
     results[_rc.WW_SENSOR_DISTANCE_FRONT_RIGHT_FACING] = {
         _rcv.WW_SENSOR_VALUE_REFLECTANCE: float(data[6]),
-        # NOT AT ALL RIGHT!!!!!!!!!!!!!!!!!
-        _rcv.WW_SENSOR_VALUE_DISTANCE: float(data[6]),
+        _rcv.WW_SENSOR_VALUE_DISTANCE: DoubleExponentialDistanceCalc.reflect_to_distance_cm(float(data[6])),
     }
     results[_rc.WW_SENSOR_DISTANCE_BACK] = {
         _rcv.WW_SENSOR_VALUE_REFLECTANCE: float(data[8]),
-        # NOT AT ALL RIGHT!!!!!!!!!!!!!!!!!
-        _rcv.WW_SENSOR_VALUE_DISTANCE: float(data[8]),
+        _rcv.WW_SENSOR_VALUE_DISTANCE: DoubleExponentialDistanceCalc.reflect_to_distance_cm(float(data[8])),
     }
 
     # pi * diameter_cm
