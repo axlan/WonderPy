@@ -65,7 +65,7 @@ Sensors
  - Pose ✅ This includes the "watermark" to determine how many movement commands are queued
  - Accelerometer ✅
  - Gyro ✅
- - Distance Sensors ❔ The raw values are captured, but the original library used the dylib to convert the values to distance in cm. This would be fairly complicated to extract, and would probably be better done from scratch.
+ - Distance Sensors ❔ The raw values are captured, but the original library used the dylib to convert the values to distance in cm. Replaced with a very rough double exponential curve fit.
  - Wheel Encoders ✅
  - Picked Up ✅
  - Bump Stall ✅
