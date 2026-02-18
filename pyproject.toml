@@ -1,7 +1,7 @@
 [project]
 name = "wonderpy"
 version = "0.2.0"
-description = "Add your description here"
+description = "Python API for working with Wonder Workshop robots"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
