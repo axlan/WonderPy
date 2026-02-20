@@ -427,6 +427,20 @@ def _encode_speaker(args: dict[str, Any]) -> bytes:
     else:
         return b'\x18' + file_name.encode('ascii')
     
+
+def _encode_animation(args: dict[str, Any]) -> bytes:
+    file_name = args[_rcv.WW_COMMAND_VALUE_FILE]
+
+    if len(file_name) > 15 or len(file_name) == 0:
+        print('Invalid animation name.')
+        file_name = _rcv.WW_COMMAND_VALUE_STOP_SOUND
+    
+    if file_name == _rcv.WW_COMMAND_VALUE_STOP_SOUND:
+        return b'+'
+    else:
+        return b'&' + file_name.encode('ascii')
+    
+
 MAX_PACKET_LEN = 20
 
 def encode_cmd(dict_data: dict[str, Any]) -> list[bytes]:
@@ -479,11 +493,15 @@ def encode_cmd(dict_data: dict[str, Any]) -> list[bytes]:
             # (1003)"Dot":  −133°to+133°
             # (1001)"Dash": −120°to+120°
             msg_bytes.append(b'\x06' + _servo_angle_bytes(val, -120, 120))
+        elif key == _rc.WW_COMMAND_ON_ROBOT_ANIM:
+            # Not entirely sure what this does, or what the valid files are?
+            msg_bytes.append(_encode_animation(val))
+        elif key == _rc.WW_COMMAND_MOTOR_HEAD_BANG:
+            msg_bytes.append(b'\x10')
         elif key in {_rc.WW_COMMAND_BODY_WHEELS, _rc.WW_COMMAND_BODY_COAST, _rc.WW_COMMAND_BODY_LINEAR_ANGULAR,
                      _rc.WW_COMMAND_EYE_RING, _rc.WW_COMMAND_HEAD_PAN_VOLTAGE, _rc.WW_COMMAND_HEAD_TILT_VOLTAGE,
                       _rc.WW_COMMAND_LAUNCHER_FLING, _rc.WW_COMMAND_LAUNCHER_RELOAD, _rc.WW_COMMAND_LED_MESSAGE,
-                      _rc.WW_COMMAND_SET_PING,_rc.WW_COMMAND_POWER, _rc.WW_COMMAND_ON_ROBOT_ANIM, 
-                      _rc.WW_COMMAND_MOTOR_HEAD_BANG}:
+                      _rc.WW_COMMAND_SET_PING}:
             raise NotImplementedError(f'Command {_CMD_NAME_DICT[key]} not yet implemented.')
         else:
             raise NotImplementedError(f'Command {_CMD_NAME_DICT[key]} not yet implemented.')

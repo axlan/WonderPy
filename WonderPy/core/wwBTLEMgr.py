@@ -123,7 +123,7 @@ class WWBTLEManager:
                 # Try to create a WWRobot from the detected device
                 # We need to connect temporarily to get device info
                 try:
-                    async with BleakClient(scanned_device.address, timeout=30) as temp_client:
+                    async with BleakClient(scanned_device.address, timeout=5) as temp_client:
                         rob = robot_from_device((scanned_device, advertisement_data))
                         
                         # Apply filters
@@ -162,7 +162,7 @@ class WWBTLEManager:
                             devices_no[str(scanned_device)] = (scanned_device, advertisement_data)
                 except Exception:
                     # If we can't connect, skip this device for now
-                    raise
+                    continue
 
             ticks += 1
             sys.stdout.write('\rmatching robots: %d  non-matching robots: %d %s%s' %
