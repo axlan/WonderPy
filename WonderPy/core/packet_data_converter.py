@@ -36,6 +36,11 @@ def _bytes_to_s16(data: bytes) -> int:
 def _clamp(value, min_val, max_val):
     return max(min_val, min(max_val, value))
 
+def _check_range(value, min_val, max_val, name):
+    if value > max_val or value < min_val:
+        raise ValueError(f'Value {name} out of range [{min_val} to {max_val}]')
+    return _clamp(value, min_val, max_val)
+
 def _create_command_lookup():
     """
     Create a reverse lookup dictionary mapping command values to names.
@@ -327,23 +332,35 @@ def _encode_pose(args: dict[str, Any]) -> bytes:
     """
     Command robot to alter its pose
 
-    Encoding format:
-    - X, Y: 14-bit signed integers (scaled by 10)
-    - Theta: 12-bit signed integer (scaled by 100)
-    - Time: 16-bit unsigned integer (milliseconds)
-    - Mode, direction, wrap_theta, ease: packed control flags
+    NOTE: Original library tracks quantization error and tries to compensate on
+    subsequent commands. This isn't implemented here for simplicity.
+
+    Encoding format: - X, Y: 14-bit signed integers (scaled by 10) - Theta:
+    12-bit signed integer (scaled by 100) - Time: 16-bit unsigned integer
+    (milliseconds) - Mode, direction, wrap_theta, ease: packed control flags
     """
 
     packet_id = 0x23
 
-    # Scale and round values
-    x_encoded = _clamp(-8192, 8191, int(round(args[_rcv.WW_COMMAND_VALUE_AXIS_X] * 10.0)))
-    y_encoded = _clamp(-8192, 8191, int(round(args[_rcv.WW_COMMAND_VALUE_AXIS_Y] * 10.0)))
-    
-    theta_scaled = math.radians(args[_rcv.WW_COMMAND_VALUE_ANGLE_DEGREE]) * 100.0
-    theta_encoded = _clamp(-2048, 2047, int(round(theta_scaled)))
-    
-    time_ms = _clamp(0, 65535, int(round(args[_rcv.WW_COMMAND_VALUE_TIME] * 1000.0)))
+    try:
+        # Scale and round values
+        POS_SCALE = 10.0
+        x = _check_range(args[_rcv.WW_COMMAND_VALUE_AXIS_X], -8192 / POS_SCALE, 8191 / POS_SCALE,'pose_cmd_x')
+        x_encoded = int(round(x * POS_SCALE))
+        y = _check_range(args[_rcv.WW_COMMAND_VALUE_AXIS_Y], -8192 / POS_SCALE, 8191 / POS_SCALE,'pose_cmd_y')
+        y_encoded = int(round(y * POS_SCALE))
+        
+        THETA_SCALE = math.pi / 180.0 * 100.0
+        theta = _check_range(args[_rcv.WW_COMMAND_VALUE_ANGLE_DEGREE], -2048 / THETA_SCALE, 2047 / THETA_SCALE,'pose_cmd_degrees')
+        theta_scaled = theta * THETA_SCALE
+        theta_encoded = int(round(theta_scaled))
+        
+        TIME_SCALE = 1000.0
+        time_cmd = _check_range(args[_rcv.WW_COMMAND_VALUE_TIME], 0, 65535 / TIME_SCALE, 'pose_cmd_time')
+        time_ms = int(round(time_cmd * TIME_SCALE))
+    except ValueError as e:
+        print(e)
+        return bytes()
     
     ease = args[_rcv.WW_COMMAND_VALUE_POSE_EASE]
     mode = args[_rcv.WW_COMMAND_VALUE_POSE_MODE]
@@ -353,9 +370,9 @@ def _encode_pose(args: dict[str, Any]) -> bytes:
     # Handle mode 5 -> 3 conversion
     mode = 3 if mode == 5 else (int(mode) & 0x03)
 
-    if mode == 3:
+    if mode == WWRobotConstants.WWPoseMode.WW_POSE_MODE_SET_GLOBAL:
         raise NotImplementedError('Setting global origin position not implemented.')
-    
+
     # Pack into bytes
     return struct.pack(
         'BBBBBBBBB',
