@@ -337,13 +337,13 @@ def _encode_pose(args: dict[str, Any]) -> bytes:
     packet_id = 0x23
 
     # Scale and round values
-    x_encoded = max(-8192, min(8191, int(round(args[_rcv.WW_COMMAND_VALUE_AXIS_X] * 10.0))))
-    y_encoded = max(-8192, min(8191, int(round(args[_rcv.WW_COMMAND_VALUE_AXIS_Y] * 10.0))))
+    x_encoded = _clamp(-8192, 8191, int(round(args[_rcv.WW_COMMAND_VALUE_AXIS_X] * 10.0)))
+    y_encoded = _clamp(-8192, 8191, int(round(args[_rcv.WW_COMMAND_VALUE_AXIS_Y] * 10.0)))
     
-    theta_scaled = args[_rcv.WW_COMMAND_VALUE_ANGLE_DEGREE] * 100.0
-    theta_encoded = max(-2048, min(2047, int(round(theta_scaled))))
+    theta_scaled = math.radians(args[_rcv.WW_COMMAND_VALUE_ANGLE_DEGREE]) * 100.0
+    theta_encoded = _clamp(-2048, 2047, int(round(theta_scaled)))
     
-    time_ms = max(0, min(65535, int(round(args[_rcv.WW_COMMAND_VALUE_TIME] * 1000.0))))
+    time_ms = _clamp(0, 65535, int(round(args[_rcv.WW_COMMAND_VALUE_TIME] * 1000.0)))
     
     ease = args[_rcv.WW_COMMAND_VALUE_POSE_EASE]
     mode = args[_rcv.WW_COMMAND_VALUE_POSE_MODE]

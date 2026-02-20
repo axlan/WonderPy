@@ -29,7 +29,7 @@ HAL::RobotHW_rev0::packetizeCtlr2BotMsg(RobotHW_rev0 *this,Ctlr2BotMsg *param_1,
   long lVar23;
   HALPacket_t ***pppHVar24;
   uint uVar25;
-  double dVar26;
+  double rounded;
   undefined8 local_730;
   HALPacket_t **local_728;
   ushort local_71e;
@@ -44,21 +44,21 @@ HAL::RobotHW_rev0::packetizeCtlr2BotMsg(RobotHW_rev0 *this,Ctlr2BotMsg *param_1,
   ushort local_6f2;
   undefined4 local_6f0;
   uchar local_6e9;
-  int local_6e8;
-  short local_6e2;
+  uint32_t local_6e8;
+  short theta_int;
   double local_6e0;
   double local_6d8;
   double local_6d0;
   double local_6c8;
   double local_6c0;
-  double local_6b8;
-  double local_6b0;
+  double scaled_bounded_theta;
+  double scaled_theta;
   double local_6a8;
   double local_6a0;
   double local_698;
   double local_690;
   int local_688;
-  int mode;
+  uint32_t mode;
   double local_680;
   double local_678;
   double local_670;
@@ -135,18 +135,18 @@ HAL::RobotHW_rev0::packetizeCtlr2BotMsg(RobotHW_rev0 *this,Ctlr2BotMsg *param_1,
   undefined2 local_44c;
   undefined2 local_44a;
   double local_448;
-  double local_440;
+  double scaled_theta2;
   double local_438;
   double local_430;
   double local_428;
   undefined8 msg_len;
   char local_411;
   undefined2 local_410;
-  undefined2 local_40e;
+  undefined2 int_theta;
   undefined2 local_40c;
   undefined2 local_40a;
   double local_408;
-  double local_400;
+  double scaled_bounded_theta2;
   double local_3f8;
   double local_3f0;
   uint8_t local_3e1;
@@ -227,7 +227,7 @@ HAL::RobotHW_rev0::packetizeCtlr2BotMsg(RobotHW_rev0 *this,Ctlr2BotMsg *param_1,
   int idx;
   robot_hw0_cmd_data *msg_hw_ptr;
   robot_hw0_cmd_data *msg_hw_data;
-  RobotHW *local_200;
+  RobotHW *theta_accum;
   Ctlr2BotMsg *local_1f8;
   undefined8 *local_1f0;
   undefined8 *local_1e8;
@@ -292,7 +292,7 @@ HAL::RobotHW_rev0::packetizeCtlr2BotMsg(RobotHW_rev0 *this,Ctlr2BotMsg *param_1,
   local_730 = 0x79e10;
   local_4b0 = this;
   local_4a8 = this;
-  local_200 = param_2;
+  theta_accum = param_2;
   local_1f8 = param_1;
   msg_hw_data = (robot_hw0_cmd_data *)Ctlr2BotMsg::GetHwData(param_1);
   if (packetizeCtlr2BotMsg(HAL::Ctlr2BotMsg*,HAL::RobotHW*)::nopackets == '\0') {
@@ -318,7 +318,7 @@ HAL::RobotHW_rev0::packetizeCtlr2BotMsg(RobotHW_rev0 *this,Ctlr2BotMsg *param_1,
       local_1b8 = local_1c8;
       local_1a0 = local_1c8;
       local_198 = local_1c8;
-      local_4bc = ___cxa_atexit(std::vector<HALPacket_t*,std::allocator<HALPacket_t*>>::~vector,
+      local_4bc = ___cxa_atexit(std::vector<>::~vector,
                                 &packetizeCtlr2BotMsg(HAL::Ctlr2BotMsg*,HAL::RobotHW*)::nopackets,0)
       ;
       local_730 = 0x79f4a;
@@ -328,8 +328,8 @@ HAL::RobotHW_rev0::packetizeCtlr2BotMsg(RobotHW_rev0 *this,Ctlr2BotMsg *param_1,
   msg_hw_ptr = msg_hw_data;
   if (msg_hw_data == (robot_hw0_cmd_data *)0x0) {
     local_730 = 0x7fbb7;
-    std::vector<HALPacket_t*,std::allocator<HALPacket_t*>>::vector
-              ((vector<HALPacket_t*,std::allocator<HALPacket_t*>> *)local_4a8,
+    std::vector<>::vector
+              ((vector<> *)local_4a8,
                (vector *)&packetizeCtlr2BotMsg(HAL::Ctlr2BotMsg*,HAL::RobotHW*)::nopackets);
   }
   else {
@@ -445,7 +445,7 @@ LAB_0007a747:
           msg_hw_ptr->packets[local_224].size = msg_hw_ptr->packets[local_224].size + 1;
         }
         local_730 = 0x7a954;
-        RobotHW::invalidateCachedSynthSettings(local_200);
+        RobotHW::invalidateCachedSynthSettings(theta_accum);
       }
     }
     local_730 = 0x7a98d;
@@ -459,7 +459,7 @@ LAB_0007a9a4:
         msg_hw_ptr->packets[local_238].data[msg_hw_ptr->packets[local_238].size] = '&';
         for (local_244 = 0; local_244 < 0xe; local_244 = local_244 + 1) {
           msg_hw_ptr->packets[local_238].data[local_244 + 1 + msg_hw_ptr->packets[local_238].size] =
-               (msg_hw_ptr->pose).field0_0x0[(long)local_244 + 0xe];
+               msg_hw_ptr->field4_0x266[(long)local_244 + 0xe];
         }
         msg_hw_ptr->packets[local_238].size = msg_hw_ptr->packets[local_238].size + 0xf;
       }
@@ -478,7 +478,7 @@ LAB_0007ab48:
         msg_hw_ptr->packets[local_248].data[msg_hw_ptr->packets[local_248].size + 1] = '\x01';
         for (local_254 = 0; local_254 < 0x12; local_254 = local_254 + 1) {
           msg_hw_ptr->packets[local_248].data[local_254 + 2 + msg_hw_ptr->packets[local_248].size] =
-               msg_hw_ptr[1].field2_0x50[(long)local_254 + 0x25];
+               msg_hw_ptr[1].packets[0].data[(long)local_254 + -1];
         }
         for (; local_254 < 0x12; local_254 = local_254 + 1) {
           msg_hw_ptr->packets[local_248].data[local_254 + 2 + msg_hw_ptr->packets[local_248].size] =
@@ -498,7 +498,7 @@ LAB_0007ad7d:
         msg_hw_ptr->packets[local_258].data[msg_hw_ptr->packets[local_258].size] = '\x1c';
         msg_hw_ptr->packets[local_258].data[msg_hw_ptr->packets[local_258].size + 1] = '\x03';
         msg_hw_ptr->packets[local_258].data[msg_hw_ptr->packets[local_258].size + 2] =
-             (char)*(undefined4 *)(msg_hw_ptr[1].field2_0x50 + 0x39);
+             (char)*(undefined4 *)(msg_hw_ptr[1].packets[0].data + 0x13);
         for (local_264 = 3; local_264 < 0x14; local_264 = local_264 + 1) {
           msg_hw_ptr->packets[local_258].data[local_264 + msg_hw_ptr->packets[local_258].size] =
                '\0';
@@ -517,7 +517,7 @@ LAB_0007af7f:
         msg_hw_ptr->packets[local_268].data[msg_hw_ptr->packets[local_268].size] = '\x1c';
         msg_hw_ptr->packets[local_268].data[msg_hw_ptr->packets[local_268].size + 1] = '\x04';
         msg_hw_ptr->packets[local_268].data[msg_hw_ptr->packets[local_268].size + 2] =
-             (char)*(undefined4 *)(msg_hw_ptr[1].field2_0x50 + 0x3d);
+             (char)*(undefined4 *)((long)&msg_hw_ptr[1].packets[1].size + 3);
         for (local_274 = 3; local_274 < 0x14; local_274 = local_274 + 1) {
           msg_hw_ptr->packets[local_268].data[local_274 + msg_hw_ptr->packets[local_268].size] =
                '\0';
@@ -534,12 +534,12 @@ LAB_0007b181:
         local_280 = 0x14;
         if (0x14 - msg_hw_ptr->packets[local_278].size < 0x14) goto LAB_0007b3c2;
         local_281 = 0;
-        local_282 = (byte)*(undefined4 *)(msg_hw_ptr[1].field2_0x50 + 0x3d);
+        local_282 = (byte)*(undefined4 *)((long)&msg_hw_ptr[1].packets[1].size + 3);
         if (local_282 == 7) {
           local_281 = 0x40;
           local_282 = 1;
         }
-        local_281 = local_281 | (byte)*(undefined4 *)(msg_hw_ptr[1].field2_0x50 + 0x39) & 7 |
+        local_281 = local_281 | (byte)*(undefined4 *)(msg_hw_ptr[1].packets[0].data + 0x13) & 7 |
                     (local_282 & 7) << 3;
         msg_hw_ptr->packets[local_278].data[msg_hw_ptr->packets[local_278].size] = '\x1c';
         msg_hw_ptr->packets[local_278].data[msg_hw_ptr->packets[local_278].size + 1] = '\n';
@@ -569,19 +569,19 @@ LAB_0007b408:
         msg_hw_ptr->packets[local_28c].data[msg_hw_ptr->packets[local_28c].size] = '\x1c';
         msg_hw_ptr->packets[local_28c].data[msg_hw_ptr->packets[local_28c].size + 1] = '\b';
         msg_hw_ptr->packets[local_28c].data[msg_hw_ptr->packets[local_28c].size + 2] =
-             (char)*(undefined4 *)(msg_hw_ptr[1].field2_0x50 + 0x41);
+             (char)*(undefined4 *)(msg_hw_ptr[1].packets[1].data + 3);
         uVar25 = msg_hw_ptr->packets[local_28c].size + 3;
         msg_hw_ptr->packets[local_28c].data[uVar25] =
-             msg_hw_ptr->packets[local_28c].data[uVar25] | msg_hw_ptr[1].field2_0x50[0x45] & 1;
+             msg_hw_ptr->packets[local_28c].data[uVar25] | msg_hw_ptr[1].packets[1].data[7] & 1U;
         uVar25 = msg_hw_ptr->packets[local_28c].size + 3;
         msg_hw_ptr->packets[local_28c].data[uVar25] =
              msg_hw_ptr->packets[local_28c].data[uVar25] | 4;
         pppHVar24 = &local_728;
-        if ((msg_hw_ptr[1].field2_0x50[0x45] & 1) != 0) {
-          local_2a8 = msg_hw_ptr[1].field2_0x50 + 0x46;
+        if ((msg_hw_ptr[1].packets[1].data[7] & 1U) != 0) {
+          local_2a8 = msg_hw_ptr[1].packets[1].data + 8;
           local_500 = "%s%s";
           local_730 = 0x7b6e6;
-          local_2b0 = (char *)RobotHW::getUniqueId(local_200);
+          local_2b0 = (char *)RobotHW::getUniqueId(theta_accum);
           local_730 = 0x7b6f9;
           local_508 = _strlen(local_2a8);
           local_730 = 0x7b70c;
@@ -632,7 +632,7 @@ LAB_0007b8ce:
         msg_hw_ptr->packets[local_2c8].data[msg_hw_ptr->packets[local_2c8].size] = '\x1c';
         msg_hw_ptr->packets[local_2c8].data[msg_hw_ptr->packets[local_2c8].size + 1] = '\x06';
         msg_hw_ptr->packets[local_2c8].data[msg_hw_ptr->packets[local_2c8].size + 2] =
-             (char)(int)(*(double *)(msg_hw_ptr[1].field2_0x50 + 0x85) * 100.0);
+             (char)(int)(*(double *)(msg_hw_ptr[1].field2_0x50 + 0x1b) * 100.0);
         for (local_2d4 = 3; local_2d4 < 0x14; local_2d4 = local_2d4 + 1) {
           msg_hw_ptr->packets[local_2c8].data[local_2d4 + msg_hw_ptr->packets[local_2c8].size] =
                '\0';
@@ -652,7 +652,7 @@ LAB_0007baa9:
         msg_hw_ptr->packets[local_2d8].data[msg_hw_ptr->packets[local_2d8].size] = '\x1c';
         msg_hw_ptr->packets[local_2d8].data[msg_hw_ptr->packets[local_2d8].size + 1] = '\a';
         msg_hw_ptr->packets[local_2d8].data[msg_hw_ptr->packets[local_2d8].size + 2] =
-             (char)(int)(*(double *)(msg_hw_ptr[1].field2_0x50 + 0x8d) * 255.0);
+             (char)(int)(*(double *)(msg_hw_ptr[1].field2_0x50 + 0x23) * 255.0);
         for (local_2e4 = 3; local_2e4 < 0x14; local_2e4 = local_2e4 + 1) {
           msg_hw_ptr->packets[local_2d8].data[local_2e4 + msg_hw_ptr->packets[local_2d8].size] =
                '\0';
@@ -1051,8 +1051,8 @@ LAB_0007bf51:
     prVar12 = msg_hw_ptr;
     if ((uVar19 & 1) != 0) {
       for (local_398 = 0; local_398 < 3; local_398 = local_398 + 1) {
-        local_168 = *(undefined8 *)(msg_hw_ptr[1].packets[0].data + 0x11);
-        local_150 = *(undefined8 *)(msg_hw_ptr[1].packets[1].data + 1);
+        local_168 = *(undefined8 *)(msg_hw_ptr->field4_0x266 + 0x52);
+        local_150 = *(undefined8 *)(msg_hw_ptr->field4_0x266 + 0x5a);
         local_639 = 0;
         local_3a1 = 0;
         local_3a0 = 7;
@@ -1064,7 +1064,7 @@ LAB_0007bf51:
         local_140 = local_150;
         if (6 < 0x14 - msg_hw_ptr->packets[local_398].size) {
           msg_hw_ptr->packets[local_398].data[msg_hw_ptr->packets[local_398].size] = '%';
-          local_648 = (*(double *)(msg_hw_ptr[1].packets[0].data + 1) * 10.0) / 2.0;
+          local_648 = (*(double *)(msg_hw_ptr->field4_0x266 + 0x42) * 10.0) / 2.0;
           if (750.0 <= local_648) {
             local_648 = 750.0;
           }
@@ -1075,7 +1075,7 @@ LAB_0007bf51:
             local_650 = local_648;
           }
           local_3b0 = local_650;
-          local_658 = (*(double *)(msg_hw_ptr[1].packets[0].data + 9) * 1000.0) / 8.0;
+          local_658 = (*(double *)(msg_hw_ptr->field4_0x266 + 0x4a) * 1000.0) / 8.0;
           if (1000.0 <= local_658) {
             local_658 = 1000.0;
           }
@@ -1095,7 +1095,7 @@ LAB_0007bf51:
                (char)(int)local_660;
           msg_hw_ptr->packets[local_398].data[msg_hw_ptr->packets[local_398].size + 3] =
                (byte)((short)(local_3bc & 0x700) >> 5) | (byte)((uint)iVar18 >> 8) & 7;
-          local_668 = ABS(*(double *)(msg_hw_ptr[1].packets[0].data + 0x11));
+          local_668 = ABS(*(double *)(msg_hw_ptr->field4_0x266 + 0x52));
           if (1023.0 <= local_668) {
             local_668 = 1023.0;
           }
@@ -1105,7 +1105,7 @@ LAB_0007bf51:
           else {
             local_670 = local_668;
           }
-          local_678 = (ABS(*(double *)(msg_hw_ptr[1].packets[1].data + 1)) * 1000.0) / 64.0;
+          local_678 = (ABS(*(double *)(msg_hw_ptr->field4_0x266 + 0x5a)) * 1000.0) / 64.0;
           if (1023.0 <= local_678) {
             local_678 = 1023.0;
           }
@@ -1136,22 +1136,21 @@ LAB_0007bf51:
     *(undefined8 *)((long)pppHVar24 + -8) = 0x7dc16;
     uVar19 = testAndClearCommandMaskBit(prVar12,0x20000);
     if ((uVar19 & 1) != 0) {
-      mode = *(int *)(msg_hw_ptr[1].field2_0x50 + 0xd);
-      if ((mode == 0) || (local_688 = mode + -6, mode - 2U < 4)) {
-        *(double *)local_200 = 0.0;
+      mode = (msg_hw_ptr->pose).mode;
+      if ((mode == 0) || (local_688 = mode - 6, mode - 2 < 4)) {
+        *(double *)theta_accum = 0.0;
       }
       for (i = 0; i < 3; i = i + 1) {
-        if ((*(int *)(msg_hw_ptr[1].field2_0x50 + 0xd) == 3) ||
-           (*(int *)(msg_hw_ptr[1].field2_0x50 + 0xd) == 4)) {
+        if (((msg_hw_ptr->pose).mode == 3) || ((msg_hw_ptr->pose).mode == 4)) {
           pose_origin_msg_len = 9;
           if (8 < 0x14 - msg_hw_ptr->packets[i].size) {
-            if (*(int *)(msg_hw_ptr[1].field2_0x50 + 0xd) == 3) {
+            if ((msg_hw_ptr->pose).mode == 3) {
               local_3e1 = '\x17';
             }
             else {
               local_3e1 = ')';
             }
-            local_690 = *(double *)(msg_hw_ptr[1].packets[2].data + 1) * 10.0;
+            local_690 = (msg_hw_ptr->pose).x * 10.0;
             if (32767.0 <= local_690) {
               local_690 = 32767.0;
             }
@@ -1163,7 +1162,7 @@ LAB_0007bf51:
             }
             x_enc = local_698;
             local_3f0 = local_698;
-            local_6a0 = *(double *)(msg_hw_ptr[1].packets[2].data + 9) * 10.0;
+            local_6a0 = (msg_hw_ptr->pose).y * 10.0;
             if (32767.0 <= local_6a0) {
               local_6a0 = 32767.0;
             }
@@ -1174,18 +1173,18 @@ LAB_0007bf51:
               local_6a8 = local_6a0;
             }
             local_3f8 = local_6a8;
-            local_6b0 = *(double *)(msg_hw_ptr[1].packets[2].data + 0x11) * 100.0;
-            if (32767.0 <= local_6b0) {
-              local_6b0 = 32767.0;
+            scaled_theta = (msg_hw_ptr->pose).theta * 100.0;
+            if (32767.0 <= scaled_theta) {
+              scaled_theta = 32767.0;
             }
-            if (local_6b0 <= -32768.0) {
-              local_6b8 = -32768.0;
+            if (scaled_theta <= -32768.0) {
+              scaled_bounded_theta = -32768.0;
             }
             else {
-              local_6b8 = local_6b0;
+              scaled_bounded_theta = scaled_theta;
             }
-            local_400 = local_6b8;
-            local_6c0 = *(double *)(msg_hw_ptr[1].field2_0x50 + 5) * 1000.0;
+            scaled_bounded_theta2 = scaled_bounded_theta;
+            local_6c0 = (msg_hw_ptr->pose).time * 1000.0;
             if (65535.0 <= local_6c0) {
               local_6c0 = 65535.0;
             }
@@ -1197,17 +1196,17 @@ LAB_0007bf51:
             }
             local_408 = local_6c8;
             *(undefined8 *)((long)pppHVar24 + -8) = 0x7e067;
-            dVar26 = (double)_round(x_enc);
+            rounded = (double)_round(x_enc);
             x_enc = local_3f8;
-            local_40a = (undefined2)(int)dVar26;
+            local_40a = (undefined2)(int)rounded;
             *(undefined8 *)((long)pppHVar24 + -8) = 0x7e082;
-            dVar26 = (double)_round(x_enc);
-            x_enc = local_400;
-            local_40c = (undefined2)(int)dVar26;
+            rounded = (double)_round(x_enc);
+            x_enc = scaled_bounded_theta2;
+            local_40c = (undefined2)(int)rounded;
             *(undefined8 *)((long)pppHVar24 + -8) = 0x7e09d;
-            dVar26 = (double)_round(x_enc);
+            rounded = (double)_round(x_enc);
             x_enc = local_408;
-            local_40e = (undefined2)(int)dVar26;
+            int_theta = (undefined2)(int)rounded;
             *(undefined8 *)((long)pppHVar24 + -8) = 0x7e0b8;
             local_6d0 = (double)_round(x_enc);
             iVar18 = (int)local_6d0;
@@ -1220,8 +1219,8 @@ LAB_0007bf51:
                  (char)((ushort)local_40c >> 8);
             msg_hw_ptr->packets[i].data[msg_hw_ptr->packets[i].size + 4] = (char)local_40c;
             msg_hw_ptr->packets[i].data[msg_hw_ptr->packets[i].size + 5] =
-                 (char)((ushort)local_40e >> 8);
-            msg_hw_ptr->packets[i].data[msg_hw_ptr->packets[i].size + 6] = (char)local_40e;
+                 (char)((ushort)int_theta >> 8);
+            msg_hw_ptr->packets[i].data[msg_hw_ptr->packets[i].size + 6] = (char)int_theta;
             msg_hw_ptr->packets[i].data[msg_hw_ptr->packets[i].size + 7] = (char)((uint)iVar18 >> 8)
             ;
             msg_hw_ptr->packets[i].data[msg_hw_ptr->packets[i].size + 8] = (char)iVar18;
@@ -1233,11 +1232,11 @@ LAB_0007bf51:
           local_411 = '#';
           msg_len = 9;
           if (8 < 0x14 - msg_hw_ptr->packets[i].size) {
-            x_enc = *(double *)(msg_hw_ptr[1].packets[2].data + 1) * 10.0;
-            local_430 = *(double *)(msg_hw_ptr[1].packets[2].data + 9) * 10.0;
-            local_438 = *(double *)(msg_hw_ptr[1].packets[2].data + 0x11) * 100.0;
-            local_440 = local_438 - *(double *)local_200;
-            local_6d8 = *(double *)(msg_hw_ptr[1].field2_0x50 + 5) * 1000.0;
+            x_enc = (msg_hw_ptr->pose).x * 10.0;
+            local_430 = (msg_hw_ptr->pose).y * 10.0;
+            local_438 = (msg_hw_ptr->pose).theta * 100.0;
+            scaled_theta2 = local_438 - *(double *)theta_accum;
+            local_6d8 = (msg_hw_ptr->pose).time * 1000.0;
             if (65535.0 <= local_6d8) {
               local_6d8 = 65535.0;
             }
@@ -1250,19 +1249,19 @@ LAB_0007bf51:
             local_448 = local_6e0;
             local_428 = x_enc;
             *(undefined8 *)((long)pppHVar24 + -8) = 0x7e580;
-            dVar26 = (double)_round(x_enc);
+            rounded = (double)_round(x_enc);
             x_enc = local_430;
-            local_44a = (undefined2)(int)dVar26;
+            local_44a = (undefined2)(int)rounded;
             *(undefined8 *)((long)pppHVar24 + -8) = 0x7e59b;
-            dVar26 = (double)_round(x_enc);
-            x_enc = local_440;
-            local_44c = (undefined2)(int)dVar26;
+            rounded = (double)_round(x_enc);
+            x_enc = scaled_theta2;
+            local_44c = (undefined2)(int)rounded;
             *(undefined8 *)((long)pppHVar24 + -8) = 0x7e5b6;
             x_enc = (double)_round(x_enc);
-            local_6e2 = (short)(int)x_enc;
+            theta_int = (short)(int)x_enc;
             iVar18 = (int)local_448;
             local_450 = (undefined2)iVar18;
-            *(double *)local_200 = (double)(int)local_6e2 - local_440;
+            *(double *)theta_accum = (double)(int)theta_int - scaled_theta2;
             msg_hw_ptr->packets[i].data[msg_hw_ptr->packets[i].size] = local_411;
             msg_hw_ptr->packets[i].data[msg_hw_ptr->packets[i].size + 1] = (char)local_44a;
             msg_hw_ptr->packets[i].data[msg_hw_ptr->packets[i].size + 2] = (char)local_44c;
@@ -1276,44 +1275,42 @@ LAB_0007bf51:
                  (byte)((ushort)local_44c >> 8) & 0x3f;
             uVar25 = msg_hw_ptr->packets[i].size + 6;
             msg_hw_ptr->packets[i].data[uVar25] =
-                 msg_hw_ptr->packets[i].data[uVar25] | (byte)(local_6e2 >> 2) & 0xc0;
+                 msg_hw_ptr->packets[i].data[uVar25] | (byte)(theta_int >> 2) & 0xc0;
             uVar25 = msg_hw_ptr->packets[i].size + 7;
             msg_hw_ptr->packets[i].data[uVar25] =
-                 msg_hw_ptr->packets[i].data[uVar25] | (byte)(local_6e2 >> 4) & 0xc0;
+                 msg_hw_ptr->packets[i].data[uVar25] | (byte)(theta_int >> 4) & 0xc0;
             msg_hw_ptr->packets[i].data[msg_hw_ptr->packets[i].size + 8] = '\0';
-            if (*(int *)(msg_hw_ptr[1].field2_0x50 + 0xd) == 5) {
+            if ((msg_hw_ptr->pose).mode == 5) {
               local_6e8 = 3;
             }
             else {
-              local_6e8 = *(int *)(msg_hw_ptr[1].field2_0x50 + 0xd);
+              local_6e8 = (msg_hw_ptr->pose).mode;
             }
             uVar25 = msg_hw_ptr->packets[i].size + 8;
             msg_hw_ptr->packets[i].data[uVar25] =
                  msg_hw_ptr->packets[i].data[uVar25] | (byte)(local_6e8 << 6);
             uVar25 = msg_hw_ptr->packets[i].size + 8;
             msg_hw_ptr->packets[i].data[uVar25] =
-                 msg_hw_ptr->packets[i].data[uVar25] | (msg_hw_ptr[1].field2_0x50[0x19] & 1) << 5;
+                 msg_hw_ptr->packets[i].data[uVar25] | ((msg_hw_ptr->pose).ease & 1) << 5;
             uVar25 = msg_hw_ptr->packets[i].size + 8;
             msg_hw_ptr->packets[i].data[uVar25] =
-                 msg_hw_ptr->packets[i].data[uVar25] |
-                 (byte)(*(int *)(msg_hw_ptr[1].field2_0x50 + 0x15) << 4);
+                 msg_hw_ptr->packets[i].data[uVar25] | (byte)((msg_hw_ptr->pose).wrap_theta << 4);
             uVar25 = msg_hw_ptr->packets[i].size + 8;
             msg_hw_ptr->packets[i].data[uVar25] =
-                 msg_hw_ptr->packets[i].data[uVar25] |
-                 (byte)*(undefined4 *)(msg_hw_ptr[1].field2_0x50 + 0x11);
+                 msg_hw_ptr->packets[i].data[uVar25] | (byte)(msg_hw_ptr->pose).dir;
             msg_hw_ptr->packets[i].size = msg_hw_ptr->packets[i].size + (int)msg_len;
-            local_44e = local_6e2;
+            local_44e = theta_int;
             break;
           }
         }
       }
     }
     prVar12 = msg_hw_ptr;
-    uVar9 = *(undefined4 *)((long)&(msg_hw_ptr->pose).mode + 2);
+    uVar9 = *(undefined4 *)(msg_hw_ptr->field4_0x266 + 0x2a);
     *(undefined8 *)((long)pppHVar24 + -8) = 0x7eb91;
     tryEncodeCommand___8_1(prVar12,0x8000,200,(uchar)uVar9);
     prVar12 = msg_hw_ptr;
-    volume = *(ushort *)(msg_hw_ptr[1].field0_0x0 + 1);
+    volume = *(ushort *)(msg_hw_ptr->field4_0x266 + 0x36);
     *(undefined8 *)((long)pppHVar24 + -8) = 0x7ebbb;
     tryEncodeCommandLtl16_1(prVar12,0x8000000000,0xff,volume);
     prVar12 = msg_hw_ptr;
@@ -1322,30 +1319,30 @@ LAB_0007bf51:
     prVar12 = msg_hw_ptr;
     *(undefined8 *)((long)pppHVar24 + -8) = 0x7ebe9;
     uVar19 = testAndClearCommandMaskBit(prVar12,0x200000000);
-    this_01 = local_200;
+    this_01 = theta_accum;
     if ((uVar19 & 1) != 0) {
       for (local_454 = 0; local_454 < 3; local_454 = local_454 + 1) {
         local_460 = 0x14;
         if (0x13 < 0x14 - msg_hw_ptr->packets[local_454].size) {
-          volume = *(ushort *)(msg_hw_ptr[1].field2_0x50 + 0xa9);
-          uVar6 = msg_hw_ptr[1].field2_0x50[0xbd];
-          uVar7 = msg_hw_ptr[1].field2_0x50[0xdd];
-          uVar8 = msg_hw_ptr[1].field2_0x50[0xfd];
-          x_enc = *(double *)(msg_hw_ptr[1].field2_0x50 + 0xc5);
-          dVar26 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0xe5);
-          dVar1 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0x105);
-          dVar2 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0x125);
-          dVar3 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0xcd);
-          dVar4 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0xed);
+          volume = *(ushort *)(msg_hw_ptr[1].field2_0x50 + 0x3f);
+          uVar6 = msg_hw_ptr[1].field2_0x50[0x53];
+          uVar7 = msg_hw_ptr[1].field2_0x50[0x73];
+          uVar8 = msg_hw_ptr[1].field2_0x50[0x93];
+          x_enc = *(double *)(msg_hw_ptr[1].field2_0x50 + 0x5b);
+          rounded = *(double *)(msg_hw_ptr[1].field2_0x50 + 0x7b);
+          dVar1 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0x9b);
+          dVar2 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0xbb);
+          dVar3 = *(double *)(msg_hw_ptr[1].field2_0x50 + 99);
+          dVar4 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0x83);
           local_6e9 = uVar6;
-          dVar5 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0x12d);
+          dVar5 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0xc3);
           local_6f0 = 0;
-          local_6f2 = *(ushort *)(msg_hw_ptr[1].field2_0x50 + 0xab);
+          local_6f2 = *(ushort *)(msg_hw_ptr[1].field2_0x50 + 0x41);
           local_700 = msg_hw_ptr;
-          local_702 = (ushort)(int)*(double *)(msg_hw_ptr[1].field2_0x50 + 0x10d);
-          *(uint *)((long)pppHVar24 + -0x60) = (uint)(byte)msg_hw_ptr[1].field2_0x50[0x11d];
+          local_702 = (ushort)(int)*(double *)(msg_hw_ptr[1].field2_0x50 + 0xa3);
+          *(uint *)((long)pppHVar24 + -0x60) = (uint)(byte)msg_hw_ptr[1].field2_0x50[0xb3];
           *(uint *)((long)pppHVar24 + -0x58) = (int)(x_enc * 10.0) & 0xffff;
-          *(uint *)((long)pppHVar24 + -0x50) = (int)(dVar26 * 10.0) & 0xffff;
+          *(uint *)((long)pppHVar24 + -0x50) = (int)(rounded * 10.0) & 0xffff;
           *(uint *)((long)pppHVar24 + -0x48) = (int)(dVar1 * 10.0) & 0xffff;
           *(uint *)((long)pppHVar24 + -0x40) = (int)(dVar2 * 10.0) & 0xffff;
           *(uint *)((long)pppHVar24 + -0x38) = (int)dVar3 & 0xffff;
@@ -1353,7 +1350,7 @@ LAB_0007bf51:
           *(uint *)((long)pppHVar24 + -0x28) = (uint)local_702;
           *(uint *)((long)pppHVar24 + -0x20) = (int)dVar5 & 0xffff;
           *(uint *)((long)pppHVar24 + -0x18) = (uint)local_6f2;
-          *(uint *)((long)pppHVar24 + -0x10) = (uint)*(ushort *)(local_700[1].field2_0x50 + 0xad);
+          *(uint *)((long)pppHVar24 + -0x10) = (uint)*(ushort *)(local_700[1].field2_0x50 + 0x43);
           *(undefined8 *)((long)pppHVar24 + -0x68) = 0x7edd7;
           bVar17 = RobotHW::setSynthStateAndCheckForChange
                              (this_01,'\0',volume,uVar6,uVar7,uVar8,
@@ -1374,14 +1371,14 @@ LAB_0007bf51:
             lVar23 = (long)local_454;
             uVar10 = msg_hw_ptr->packets[lVar23].size;
             ppVar11 = msg_hw_ptr->packets;
-            x_enc = *(double *)(msg_hw_ptr[1].field2_0x50 + 0xc5);
-            dVar26 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0xe5);
-            dVar1 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0x105);
-            dVar2 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0x125);
+            x_enc = *(double *)(msg_hw_ptr[1].field2_0x50 + 0x5b);
+            rounded = *(double *)(msg_hw_ptr[1].field2_0x50 + 0x7b);
+            dVar1 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0x9b);
+            dVar2 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0xbb);
             *(undefined8 *)((long)pppHVar24 + -8) = 0x7f09b;
             btCommandSetAudioSynthUpdate
                       ((btCommandAudioSynthUpdate_t *)(ppVar11[lVar23].data + (uVar10 + 1)),
-                       (ushort)(int)(x_enc * 10.0),(ushort)(int)(dVar26 * 10.0),
+                       (ushort)(int)(x_enc * 10.0),(ushort)(int)(rounded * 10.0),
                        (ushort)(int)(dVar1 * 10.0),(ushort)(int)(dVar2 * 10.0));
           }
           else {
@@ -1389,26 +1386,26 @@ LAB_0007bf51:
             lVar23 = (long)local_454;
             uVar10 = msg_hw_ptr->packets[lVar23].size;
             ppVar11 = msg_hw_ptr->packets;
-            volume = *(ushort *)(msg_hw_ptr[1].field2_0x50 + 0xa9);
-            uVar6 = msg_hw_ptr[1].field2_0x50[0xbd];
-            uVar7 = msg_hw_ptr[1].field2_0x50[0xdd];
-            bVar17 = msg_hw_ptr[1].field2_0x50[0x11d];
-            x_enc = *(double *)(msg_hw_ptr[1].field2_0x50 + 0xc5);
-            dVar26 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0xe5);
-            dVar1 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0x105);
-            dVar2 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0xcd);
+            volume = *(ushort *)(msg_hw_ptr[1].field2_0x50 + 0x3f);
+            uVar6 = msg_hw_ptr[1].field2_0x50[0x53];
+            uVar7 = msg_hw_ptr[1].field2_0x50[0x73];
+            bVar17 = msg_hw_ptr[1].field2_0x50[0xb3];
+            x_enc = *(double *)(msg_hw_ptr[1].field2_0x50 + 0x5b);
+            rounded = *(double *)(msg_hw_ptr[1].field2_0x50 + 0x7b);
+            dVar1 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0x9b);
+            dVar2 = *(double *)(msg_hw_ptr[1].field2_0x50 + 99);
             local_708 = 0;
-            dVar3 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0x10d);
-            local_70a = (ushort)(int)(*(double *)(msg_hw_ptr[1].field2_0x50 + 0x125) * 10.0);
-            local_70c = *(ushort *)(msg_hw_ptr[1].field2_0x50 + 0xab);
+            dVar3 = *(double *)(msg_hw_ptr[1].field2_0x50 + 0xa3);
+            local_70a = (ushort)(int)(*(double *)(msg_hw_ptr[1].field2_0x50 + 0xbb) * 10.0);
+            local_70c = *(ushort *)(msg_hw_ptr[1].field2_0x50 + 0x41);
             local_718 = msg_hw_ptr;
             local_71a = volume;
-            local_71c = (ushort)(int)*(double *)(msg_hw_ptr[1].field2_0x50 + 0xed);
-            local_71e = (ushort)(int)*(double *)(msg_hw_ptr[1].field2_0x50 + 0x12d);
-            *(uint *)((long)pppHVar24 + -0x60) = (uint)(byte)msg_hw_ptr[1].field2_0x50[0xfd];
+            local_71c = (ushort)(int)*(double *)(msg_hw_ptr[1].field2_0x50 + 0x83);
+            local_71e = (ushort)(int)*(double *)(msg_hw_ptr[1].field2_0x50 + 0xc3);
+            *(uint *)((long)pppHVar24 + -0x60) = (uint)(byte)msg_hw_ptr[1].field2_0x50[0x93];
             *(uint *)((long)pppHVar24 + -0x58) = (uint)bVar17;
             *(uint *)((long)pppHVar24 + -0x50) = (int)(x_enc * 10.0) & 0xffff;
-            *(uint *)((long)pppHVar24 + -0x48) = (int)(dVar26 * 10.0) & 0xffff;
+            *(uint *)((long)pppHVar24 + -0x48) = (int)(rounded * 10.0) & 0xffff;
             *(uint *)((long)pppHVar24 + -0x40) = (int)(dVar1 * 10.0) & 0xffff;
             *(uint *)((long)pppHVar24 + -0x38) = (uint)local_70a;
             *(uint *)((long)pppHVar24 + -0x30) = (int)dVar2 & 0xffff;
@@ -1416,7 +1413,7 @@ LAB_0007bf51:
             *(uint *)((long)pppHVar24 + -0x20) = (int)dVar3 & 0xffff;
             *(uint *)((long)pppHVar24 + -0x18) = (uint)local_71e;
             *(uint *)((long)pppHVar24 + -0x10) = (uint)local_70c;
-            *(uint *)((long)pppHVar24 + -8) = (uint)*(ushort *)(local_718[1].field2_0x50 + 0xad);
+            *(uint *)((long)pppHVar24 + -8) = (uint)*(ushort *)(local_718[1].field2_0x50 + 0x43);
             *(undefined8 *)((long)pppHVar24 + -0x68) = 0x7efe1;
             btCommandSetAudioSynth
                       ((btCommandAudioSynth_t *)(ppVar11[lVar23].data + (uVar10 + 1)),'\0','\0',
@@ -1444,23 +1441,23 @@ LAB_0007bf51:
         if (9 < 0x14 - msg_hw_ptr->packets[local_468].size) {
           msg_hw_ptr->packets[local_468].data[msg_hw_ptr->packets[local_468].size] = '@';
           msg_hw_ptr->packets[local_468].data[msg_hw_ptr->packets[local_468].size + 1] =
-               (char)((ushort)*(undefined2 *)(msg_hw_ptr[1].field2_0x50 + 0x13f) >> 8);
+               (char)((ushort)*(undefined2 *)(msg_hw_ptr[1].field2_0x50 + 0xd5) >> 8);
           msg_hw_ptr->packets[local_468].data[msg_hw_ptr->packets[local_468].size + 2] =
-               (char)*(undefined2 *)(msg_hw_ptr[1].field2_0x50 + 0x13f);
+               (char)*(undefined2 *)(msg_hw_ptr[1].field2_0x50 + 0xd5);
           msg_hw_ptr->packets[local_468].data[msg_hw_ptr->packets[local_468].size + 3] =
-               msg_hw_ptr[1].field2_0x50[0x141];
+               msg_hw_ptr[1].field2_0x50[0xd7];
           msg_hw_ptr->packets[local_468].data[msg_hw_ptr->packets[local_468].size + 4] =
-               msg_hw_ptr[1].field2_0x50[0x142];
+               msg_hw_ptr[1].field2_0x50[0xd8];
           msg_hw_ptr->packets[local_468].data[msg_hw_ptr->packets[local_468].size + 5] =
-               msg_hw_ptr[1].field2_0x50[0x143];
+               msg_hw_ptr[1].field2_0x50[0xd9];
           msg_hw_ptr->packets[local_468].data[msg_hw_ptr->packets[local_468].size + 6] =
-               msg_hw_ptr[1].field2_0x50[0x144];
+               msg_hw_ptr[1].field2_0x50[0xda];
           msg_hw_ptr->packets[local_468].data[msg_hw_ptr->packets[local_468].size + 7] =
-               msg_hw_ptr[1].field2_0x50[0x145];
+               msg_hw_ptr[1].field2_0x50[0xdb];
           msg_hw_ptr->packets[local_468].data[msg_hw_ptr->packets[local_468].size + 8] =
-               msg_hw_ptr[1].field2_0x50[0x146];
+               msg_hw_ptr[1].field2_0x50[0xdc];
           msg_hw_ptr->packets[local_468].data[msg_hw_ptr->packets[local_468].size + 9] =
-               msg_hw_ptr[1].field2_0x50[0x147];
+               msg_hw_ptr[1].field2_0x50[0xdd];
           msg_hw_ptr->packets[local_468].size = msg_hw_ptr->packets[local_468].size + 10;
           break;
         }
@@ -1475,9 +1472,9 @@ LAB_0007bf51:
         if (2 < 0x14 - msg_hw_ptr->packets[local_474].size) {
           msg_hw_ptr->packets[local_474].data[msg_hw_ptr->packets[local_474].size] = 'A';
           msg_hw_ptr->packets[local_474].data[msg_hw_ptr->packets[local_474].size + 1] =
-               (char)((ushort)*(undefined2 *)(msg_hw_ptr[1].field2_0x50 + 0x153) >> 8);
+               (char)((ushort)*(undefined2 *)(msg_hw_ptr[1].field2_0x50 + 0xe9) >> 8);
           msg_hw_ptr->packets[local_474].data[msg_hw_ptr->packets[local_474].size + 2] =
-               (char)*(undefined2 *)(msg_hw_ptr[1].field2_0x50 + 0x153);
+               (char)*(undefined2 *)(msg_hw_ptr[1].field2_0x50 + 0xe9);
           msg_hw_ptr->packets[local_474].size = msg_hw_ptr->packets[local_474].size + 3;
           break;
         }
@@ -1511,22 +1508,22 @@ LAB_0007bf51:
     for (local_494 = 0; this_00 = local_4a8, local_494 < 3; local_494 = local_494 + 1) {
       if (msg_hw_ptr->packets[local_494].size != 0) {
         local_130 = &local_4a0;
-        ppHVar21 = (HALPacket_t **)(msg_hw_ptr[1].field2_0x50 + 0x15d);
+        ppHVar21 = (HALPacket_t **)(msg_hw_ptr[1].field2_0x50 + 0xf3);
         local_4a0 = msg_hw_ptr->packets + local_494;
-        local_118 = (ulong *)(msg_hw_ptr[1].field2_0x50 + 0x16d);
+        local_118 = (ulong *)(msg_hw_ptr[1].field2_0x50 + 0x103);
         local_728 = ppHVar21;
         local_128 = ppHVar21;
         local_120 = ppHVar21;
         local_110 = local_118;
-        if (*(ulong *)(msg_hw_ptr[1].field2_0x50 + 0x165) < *local_118) {
+        if (*(ulong *)(msg_hw_ptr[1].field2_0x50 + 0xfb) < *local_118) {
           local_f8 = local_138;
           local_108 = 1;
           local_f0 = 1;
-          local_b0 = msg_hw_ptr[1].field2_0x50 + 0x16d;
-          local_b8 = *(long **)(msg_hw_ptr[1].field2_0x50 + 0x165);
+          local_b0 = msg_hw_ptr[1].field2_0x50 + 0x103;
+          local_b8 = *(long **)(msg_hw_ptr[1].field2_0x50 + 0xfb);
           *local_b8 = (long)local_4a0;
-          *(long *)(msg_hw_ptr[1].field2_0x50 + 0x165) =
-               *(long *)(msg_hw_ptr[1].field2_0x50 + 0x165) + 8;
+          *(long *)(msg_hw_ptr[1].field2_0x50 + 0xfb) =
+               *(long *)(msg_hw_ptr[1].field2_0x50 + 0xfb) + 8;
           local_100 = ppHVar21;
           local_e8 = ppHVar21;
           local_e0 = local_f8;
@@ -1550,16 +1547,13 @@ LAB_0007bf51:
         else {
           local_d8 = local_130;
           *(undefined8 *)((long)pppHVar24 + -8) = 0x7fb65;
-          std::vector<HALPacket_t*,std::allocator<HALPacket_t*>>::
-          __push_back_slow_path<HALPacket_t*>(ppHVar21);
+          std::vector<>::__push_back_slow_path<>(ppHVar21);
         }
       }
     }
     prVar12 = msg_hw_ptr + 1;
     *(undefined8 *)((long)pppHVar24 + -8) = 0x7fb9f;
-    std::vector<HALPacket_t*,std::allocator<HALPacket_t*>>::vector
-              ((vector<HALPacket_t*,std::allocator<HALPacket_t*>> *)this_00,
-               (vector *)(prVar12->field2_0x50 + 0x15d));
+    std::vector<>::vector((vector<> *)this_00,(vector *)(prVar12->field2_0x50 + 0xf3));
   }
   if (*(long *)PTR____stack_chk_guard_000e21b8 != local_38) {
                     /* WARNING: Subroutine does not return */
@@ -1601,4 +1595,3 @@ LAB_0007c20f:
   local_2fc = local_2fc + 1;
   goto LAB_0007bf51;
 }
-
