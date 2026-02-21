@@ -441,6 +441,57 @@ def _encode_animation(args: dict[str, Any]) -> bytes:
         return b'&' + file_name.encode('ascii')
     
 
+def _encode_linear_angular(args: dict[str, Any]) -> bytes:
+    packet_id = 0x25
+
+    # This seems to not be used, though it's defined?
+    use_pose = bool(args[_rcv.WW_COMMAND_VALUE_USE_POSE]) if _rcv.WW_COMMAND_VALUE_USE_POSE in args else False
+
+    LINEAR_VEL_SCALE =   (10.0 / 2.0)    # 5.0  => range ±750  LSB 
+    ANGULAR_VEL_SCALE =  (1000.0 / 8.0)  # 125  => range ±1000 LSB 
+    LINEAR_ACC_SCALE =   1.0              # raw, range 0–1023 LSB 
+    ANGULAR_ACC_SCALE =  (1000.0 / 64.0) # 15.625, range 0–1023 LSB 
+
+    # --- Scale and clamp velocities (signed 10-bit each) ---
+    linear_vel  = int(round(_clamp(args[_rcv.WW_COMMAND_VALUE_LINEAR_VELOCITY_CM_S] * LINEAR_VEL_SCALE, -750.0,  750.0)))
+    angular_vel  = int(round(_clamp(math.radians(args[_rcv.WW_COMMAND_VALUE_ANGULAR_VELOCITY_DEG_S]) * ANGULAR_VEL_SCALE, -1000.0, 1000.0)))
+
+    # --- Scale and clamp accelerations (unsigned 10-bit each) ---
+    linear_acc  = int(round(_clamp(args[_rcv.WW_COMMAND_VALUE_LINEAR_ACCELERATION_CM_S_S] * LINEAR_ACC_SCALE, 0.0, 1023.0)))
+    angular_acc  = int(round(_clamp(math.radians(args[_rcv.WW_COMMAND_VALUE_ANGULAR_ACCELERATION_DEG_S_S]) * ANGULAR_ACC_SCALE, 0.0, 1023.0)))
+
+    # /*
+    #  * Packet layout (7 bytes):
+    #  *
+    #  * [0]      '%' marker
+    #  * [1]      linear_vel  bits [7:0]
+    #  * [2]      angular_vel bits [7:0]
+    #  * [3]      angular_vel bits [10:8] << 5  |  linear_vel bits [9:8]
+    #  *            (bits 7:5 = angular high, bits 2:0 = linear high)
+    #  * [4]      linear_acc  bits [7:0]
+    #  * [5]      angular_acc bits [7:0]
+    #  * [6]      angular_acc bits [9:8] << 2  |  linear_acc bits [9:8]
+    #  *            (bits 3:2 = angular high, bits 1:0 = linear high)
+    #  */
+    # data[0] = MOTION_PACKET_MARKER;
+    # data[1] = (uint8_t)(linear_vel  & 0xFF);
+    # data[2] = (uint8_t)(angular_vel & 0xFF);
+    # data[3] = ((angular_vel & 0x700) >> 5) | ((linear_vel  >> 8) & 0x07);
+    # data[4] = (uint8_t)(linear_acc  & 0xFF);
+    # data[5] = (uint8_t)(angular_acc & 0xFF);
+    # data[6] = ((angular_acc & 0x300) >> 6) | ((linear_acc  >> 8) & 0x03);
+    return struct.pack(
+        'BBBBBBB',
+        packet_id,
+        linear_vel & 0xFF,
+        angular_vel & 0xFF,
+        ((angular_vel & 0x700) >> 5) | ((linear_vel  >> 8) & 0x07),
+        linear_acc  & 0xFF,
+        angular_acc & 0xFF,
+        ((angular_acc & 0x300) >> 6) | ((linear_acc  >> 8) & 0x03),
+        )
+
+
 MAX_PACKET_LEN = 20
 
 def encode_cmd(dict_data: dict[str, Any]) -> list[bytes]:
@@ -498,7 +549,9 @@ def encode_cmd(dict_data: dict[str, Any]) -> list[bytes]:
             msg_bytes.append(_encode_animation(val))
         elif key == _rc.WW_COMMAND_MOTOR_HEAD_BANG:
             msg_bytes.append(b'\x10')
-        elif key in {_rc.WW_COMMAND_BODY_WHEELS, _rc.WW_COMMAND_BODY_COAST, _rc.WW_COMMAND_BODY_LINEAR_ANGULAR,
+        elif key == _rc.WW_COMMAND_BODY_LINEAR_ANGULAR:
+            msg_bytes.append(_encode_linear_angular(val))
+        elif key in {_rc.WW_COMMAND_BODY_WHEELS, _rc.WW_COMMAND_BODY_COAST,
                      _rc.WW_COMMAND_EYE_RING, _rc.WW_COMMAND_HEAD_PAN_VOLTAGE, _rc.WW_COMMAND_HEAD_TILT_VOLTAGE,
                       _rc.WW_COMMAND_LAUNCHER_FLING, _rc.WW_COMMAND_LAUNCHER_RELOAD, _rc.WW_COMMAND_LED_MESSAGE,
                       _rc.WW_COMMAND_SET_PING}:
