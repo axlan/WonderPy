@@ -4,6 +4,7 @@ import sys
 import argparse
 import asyncio
 import struct
+import inspect
 
 from bleak import BleakScanner, BleakClient
 from bleak.backends.device import BLEDevice
@@ -81,6 +82,8 @@ class WWBTLEManager:
                             help='always wait the full scan period before looking at what we\'ve caught')
         parser.add_argument('--connect-ask', action='store_true',
                             help='interactively ask which of the qualifying robots you\'d like to connect to')
+        parser.add_argument('--connect-timeout', type=int, default=20,
+                            help='How many updates to wait before giving up')
 
     async def scan_and_connect(self):
         # Capture the asyncio loop used for Bleak
@@ -97,7 +100,7 @@ class WWBTLEManager:
 
         # Bleak requires scanning with a timeout
         ticks_min = 5
-        ticks_max = 20
+        ticks_max = self._args.connect_timeout
         ticks = 0
         devices: dict[str, ScanResults] = {}
         devices_no: dict[str, ScanResults] = {}
@@ -191,7 +194,8 @@ class WWBTLEManager:
 
         if len(devices) == 0:
             print("no suitable robots found!")
-            sys.exit(1)
+            self.stop()
+            return
 
         # Find device with strongest signal (highest RSSI)
         loudest_device: Optional[ScanResults] = None
@@ -229,7 +233,8 @@ class WWBTLEManager:
 
         if device is None:
             print("no suitable robots found!")
-            sys.exit(1)
+            self.stop()
+            return
 
         self.robot = robot_from_device(device)
         # Create a wrapper to call async sendJson from sync context
@@ -266,7 +271,7 @@ class WWBTLEManager:
                 self.robot._parse_sensors(new_sensor_data)
                 if hasattr(self.delegate, 'on_sensors'):
                     wwMain.thread_local_data.in_on_sensors = True
-                    if asyncio.iscoroutinefunction(self.delegate.on_sensors):
+                    if inspect.iscoroutinefunction(self.delegate.on_sensors):
                         await self.delegate.on_sensors(self.robot)
                     elif callable(self.delegate.on_sensors):
                         self.delegate.on_sensors(self.robot)
@@ -284,7 +289,7 @@ class WWBTLEManager:
 
         if hasattr(self.delegate, 'on_connect'):
             wwMain.thread_local_data.in_on_connect = True
-            if asyncio.iscoroutinefunction(self.delegate.on_connect):
+            if inspect.iscoroutinefunction(self.delegate.on_connect):
                 await self.delegate.on_connect(self.robot)
             elif callable(self.delegate.on_connect):
                 self.delegate.on_connect(self.robot)
@@ -335,5 +340,10 @@ class WWBTLEManager:
                     task.cancel()
 
             future = asyncio.run_coroutine_threadsafe(stop_task(), bleak_loop)
-            # Wait for tasks to be canceled.
-            future.result()
+            try:
+                # Inside event loop, so don't block waiting for cancel to complete.
+                pass
+            except RuntimeError:
+                # Not inside event loop
+                # Wait for tasks to be canceled.
+                future.result()
