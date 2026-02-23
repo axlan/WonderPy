@@ -480,8 +480,7 @@ def _encode_linear_angular(args: dict[str, Any]) -> bytes:
     # data[4] = (uint8_t)(linear_acc  & 0xFF);
     # data[5] = (uint8_t)(angular_acc & 0xFF);
     # data[6] = ((angular_acc & 0x300) >> 6) | ((linear_acc  >> 8) & 0x03);
-    return struct.pack(
-        'BBBBBBB',
+    return bytes((
         packet_id,
         linear_vel & 0xFF,
         angular_vel & 0xFF,
@@ -489,7 +488,7 @@ def _encode_linear_angular(args: dict[str, Any]) -> bytes:
         linear_acc  & 0xFF,
         angular_acc & 0xFF,
         ((angular_acc & 0x300) >> 6) | ((linear_acc  >> 8) & 0x03),
-        )
+    ))
 
 
 MAX_PACKET_LEN = 20
@@ -549,12 +548,13 @@ def encode_cmd(dict_data: dict[str, Any]) -> list[bytes]:
             msg_bytes.append(_encode_animation(val))
         elif key == _rc.WW_COMMAND_MOTOR_HEAD_BANG:
             msg_bytes.append(b'\x10')
+        elif key == _rc.WW_COMMAND_BODY_COAST:
+            msg_bytes.append(b"'")
         elif key == _rc.WW_COMMAND_BODY_LINEAR_ANGULAR:
             msg_bytes.append(_encode_linear_angular(val))
-        elif key in {_rc.WW_COMMAND_BODY_WHEELS, _rc.WW_COMMAND_BODY_COAST,
-                     _rc.WW_COMMAND_EYE_RING, _rc.WW_COMMAND_HEAD_PAN_VOLTAGE, _rc.WW_COMMAND_HEAD_TILT_VOLTAGE,
+        elif key in {_rc.WW_COMMAND_EYE_RING, _rc.WW_COMMAND_HEAD_PAN_VOLTAGE, _rc.WW_COMMAND_HEAD_TILT_VOLTAGE,
                       _rc.WW_COMMAND_LAUNCHER_FLING, _rc.WW_COMMAND_LAUNCHER_RELOAD, _rc.WW_COMMAND_LED_MESSAGE,
-                      _rc.WW_COMMAND_SET_PING}:
+                      _rc.WW_COMMAND_BODY_WHEELS, _rc.WW_COMMAND_SET_PING}:
             raise NotImplementedError(f'Command {_CMD_NAME_DICT[key]} not yet implemented.')
         else:
             raise NotImplementedError(f'Command {_CMD_NAME_DICT[key]} not yet implemented.')
