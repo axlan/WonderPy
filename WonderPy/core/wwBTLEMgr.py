@@ -44,6 +44,8 @@ CHAR_UUID_CMD          = uuid.UUID('AF230002-879D-6186-1F49-DECA0E85D9C1')   # c
 CHAR_UUID_SENSOR0      = uuid.UUID('AF230003-879D-6186-1F49-DECA0E85D9C1')   # sensor channel 0 (all robots)
 CHAR_UUID_SENSOR1      = uuid.UUID('AF230006-879D-6186-1F49-DECA0E85D9C1')   # sensor channel 1 (dash and cue)
 
+TASK_NAME = 'scan_and_connect_task'
+
 # this is used to renegotiate the BTLE connection interval exactly once after establishing connection.
 # this value should be as large as possible while being less than about 50ms
 # and also without accumulating ping latency.
@@ -54,6 +56,7 @@ CONNECTION_INTERVAL_MS  = 12
 
 class WWBTLEManager:
     bleak_loop: Optional[asyncio.AbstractEventLoop] = None
+    connect_task: Optional[asyncio.Task] = None
 
     def __init__(self, delegate, arguments=None):
 
@@ -88,6 +91,9 @@ class WWBTLEManager:
     async def scan_and_connect(self):
         # Capture the asyncio loop used for Bleak
         WWBTLEManager.bleak_loop = asyncio.get_running_loop()
+        WWBTLEManager.connect_task = asyncio.current_task()
+        if WWBTLEManager.connect_task is not None:
+            WWBTLEManager.connect_task.set_name(TASK_NAME)
 
         # Scan for WW devices
         filter_types = "(all)"
@@ -106,207 +112,208 @@ class WWBTLEManager:
         devices_no: dict[str, ScanResults] = {}
 
         scanner = BleakScanner()
+        try:
+            while ticks < ticks_max:   
+                # Scan for devices with the WW service UUIDs
+                detected_devices = await scanner.discover(timeout=1.0, return_adv=True)
 
-        while ticks < ticks_max:
-            # Scan for devices with the WW service UUIDs
-            detected_devices = await scanner.discover(timeout=1.0, return_adv=True)
-            
-            for scanned_device, advertisement_data in detected_devices.values():
-                # Check if device has any of the WW service UUIDs
-                service_uuids = advertisement_data.service_uuids
-                has_ww_service = any(
-                    str(uuid.UUID(service_uuid)).lower() == str(ww_uuid).lower()
-                    for service_uuid in service_uuids
-                    for ww_uuid in WW_SERVICE_IDS
-                )
-                
-                if not has_ww_service:
-                    continue
+                for scanned_device, advertisement_data in detected_devices.values():
+                    # Check if device has any of the WW service UUIDs
+                    service_uuids = advertisement_data.service_uuids
+                    has_ww_service = any(
+                        str(uuid.UUID(service_uuid)).lower() == str(ww_uuid).lower()
+                        for service_uuid in service_uuids
+                        for ww_uuid in WW_SERVICE_IDS
+                    )
+                    
+                    if not has_ww_service:
+                        continue
 
-                # Try to create a WWRobot from the detected device
-                # We need to connect temporarily to get device info
-                try:
-                    async with BleakClient(scanned_device.address, timeout=5) as temp_client:
-                        rob = robot_from_device((scanned_device, advertisement_data))
-                        
-                        # Apply filters
-                        it_passes = True
+                    # Try to create a WWRobot from the detected device
+                    # We need to connect temporarily to get device info
+                    try:
+                        async with BleakClient(scanned_device.address, timeout=5) as temp_client:
+                            rob = robot_from_device((scanned_device, advertisement_data))
+                            
+                            # Apply filters
+                            it_passes = True
 
-                        # Filter by name
-                        if self._args.connect_name is not None:
-                            p = False
-                            for n in self._args.connect_name:
-                                if n.lower() == rob.name.lower():
-                                    p = True
-                            it_passes = it_passes and p
+                            # Filter by name
+                            if self._args.connect_name is not None:
+                                p = False
+                                for n in self._args.connect_name:
+                                    if n.lower() == rob.name.lower():
+                                        p = True
+                                it_passes = it_passes and p
 
-                        # Filter by type
-                        if self._args.connect_type is not None:
-                            p = False
-                            for t in self._args.connect_type:
-                                t = t.lower()
-                                if t == "cue":
-                                    rt = WWRobotConstants.RobotType.WW_ROBOT_CUE
-                                elif t == "dash":
-                                    rt = WWRobotConstants.RobotType.WW_ROBOT_DASH
-                                elif t == "dot":
-                                    rt = WWRobotConstants.RobotType.WW_ROBOT_DOT
-                                else:
-                                    raise RuntimeError("unhandled robot type option: %s" % (t))
+                            # Filter by type
+                            if self._args.connect_type is not None:
+                                p = False
+                                for t in self._args.connect_type:
+                                    t = t.lower()
+                                    if t == "cue":
+                                        rt = WWRobotConstants.RobotType.WW_ROBOT_CUE
+                                    elif t == "dash":
+                                        rt = WWRobotConstants.RobotType.WW_ROBOT_DASH
+                                    elif t == "dot":
+                                        rt = WWRobotConstants.RobotType.WW_ROBOT_DOT
+                                    else:
+                                        raise RuntimeError("unhandled robot type option: %s" % (t))
 
-                                if rob.robot_type == rt:
-                                    p = True
+                                    if rob.robot_type == rt:
+                                        p = True
 
-                            it_passes = it_passes and p
+                                it_passes = it_passes and p
 
-                        if it_passes:
-                            devices[str(scanned_device)] = (scanned_device, advertisement_data)
-                        else:
-                            devices_no[str(scanned_device)] = (scanned_device, advertisement_data)
-                except Exception:
-                    # If we can't connect, skip this device for now
-                    continue
+                            if it_passes:
+                                devices[str(scanned_device)] = (scanned_device, advertisement_data)
+                            else:
+                                devices_no[str(scanned_device)] = (scanned_device, advertisement_data)
+                    except Exception:
+                        # If we can't connect, skip this device for now
+                        continue
 
-            ticks += 1
-            sys.stdout.write('\rmatching robots: %d  non-matching robots: %d %s%s' %
-                             (len(devices), len(devices_no), '.' * ticks, ' ' * 8))
+                ticks += 1
+                sys.stdout.write('\rmatching robots: %d  non-matching robots: %d %s%s' %
+                                (len(devices), len(devices_no), '.' * ticks, ' ' * 8))
+                sys.stdout.flush()
+
+                try_right_now = False
+                try_right_now = try_right_now or ((self._args.connect_eager) and (len(devices) > 0))
+                try_right_now = try_right_now or ((ticks > ticks_min) and (len(devices) > 0))
+                try_right_now = try_right_now and not self._args.connect_patient
+
+                if try_right_now:
+                    ticks = ticks_max
+
+            if len(devices_no) > 0:
+                sys.stdout.write("found but skipping: ")
+                delim = ""
+                for d in devices_no.values():
+                    r = robot_from_device(d)
+                    sys.stdout.write("{}{} '{}'".format(delim, r.robot_type_name, r.name))
+                    delim = ', '
+                sys.stdout.write('.\n')
+
+            sys.stdout.write('\n')
             sys.stdout.flush()
 
-            try_right_now = False
-            try_right_now = try_right_now or ((self._args.connect_eager) and (len(devices) > 0))
-            try_right_now = try_right_now or ((ticks > ticks_min) and (len(devices) > 0))
-            try_right_now = try_right_now and not self._args.connect_patient
+            if len(devices) == 0:
+                print("no suitable robots found!")
+                self.stop()
+                return
 
-            if try_right_now:
-                ticks = ticks_max
+            # Find device with strongest signal (highest RSSI)
+            loudest_device: Optional[ScanResults] = None
+            for d, data in devices.values():
+                if loudest_device is None or data.rssi > loudest_device[1].rssi:
+                    loudest_device = (d, data)
 
-        if len(devices_no) > 0:
-            sys.stdout.write("found but skipping: ")
-            delim = ""
-            for d in devices_no.values():
-                r = robot_from_device(d)
-                sys.stdout.write("{}{} '{}'".format(delim, r.robot_type_name, r.name))
-                delim = ', '
-            sys.stdout.write('.\n')
+            device: Optional[ScanResults] = None
 
-        sys.stdout.write('\n')
-        sys.stdout.flush()
-
-        if len(devices) == 0:
-            print("no suitable robots found!")
-            self.stop()
-            return
-
-        # Find device with strongest signal (highest RSSI)
-        loudest_device: Optional[ScanResults] = None
-        for d, data in devices.values():
-            if loudest_device is None or data.rssi > loudest_device[1].rssi:
-                loudest_device = (d, data)
-
-        device: Optional[ScanResults] = None
-
-        if len(devices) == 1:
-            device = next(iter(devices.values())) 
-        else:
-            if self._args.connect_ask:
-                print("Suitable robots:")
-                map = {}
-                for d in devices.values():
-                    r = robot_from_device(d)
-                    n = len(map) + 1
-                    map[str(n)] = d
-                    icon = '📶' if d == loudest_device else '⏹'
-                    print("%2d. %s %14s '%s'" % (n, icon, r.robot_type_name, r.name))
-
-                device = None
-                while device is None:
-                    user_choice = input("Enter [%d - %d]: " % (1, len(devices)))
-                    if user_choice in map:
-                        device = map[user_choice]
-                    elif user_choice == '':
-                        device = loudest_device
-                    else:
-                        print("bzzzt")
+            if len(devices) == 1:
+                device = next(iter(devices.values())) 
             else:
-                device = loudest_device
-                print("found %d suitable robots, choosing the best signal" % (len(devices)))
+                if self._args.connect_ask:
+                    print("Suitable robots:")
+                    map = {}
+                    for d in devices.values():
+                        r = robot_from_device(d)
+                        n = len(map) + 1
+                        map[str(n)] = d
+                        icon = '📶' if d == loudest_device else '⏹'
+                        print("%2d. %s %14s '%s'" % (n, icon, r.robot_type_name, r.name))
 
-        if device is None:
-            print("no suitable robots found!")
-            self.stop()
-            return
-
-        self.robot = robot_from_device(device)
-        # Create a wrapper to call async sendJson from sync context
-        def sync_sendJson(json_dict):
-            # NOTE: The caller does not block for this to complete.
-            asyncio.run_coroutine_threadsafe(self.sendJson(json_dict), self.bleak_loop) # type: ignore
-        self.robot._sendJson = sync_sendJson
-
-        print('Connecting to ' + self.robot.robot_type_name + ' "%s"' % (self.robot.name))
-
-        # Connect to the device
-        self.client = BleakClient(device[0].address)
-        await self.client.connect()
-
-        await self._send_connection_interval_renegotiation()
-
-        # Setup notification callbacks
-        async def on_data_sensor(sender: BleakGATTCharacteristic, data: bytearray):
-            assert self.robot is not None
-            new_sensor_data = None
- 
-            if uuid.UUID(sender.uuid) == CHAR_UUID_SENSOR0:
-                if not self.robot.expect_sensor_packet_2:
-                    new_sensor_data = dot_sensor_decode(data)
+                    device = None
+                    while device is None:
+                        user_choice = input("Enter [%d - %d]: " % (1, len(devices)))
+                        if user_choice in map:
+                            device = map[user_choice]
+                        elif user_choice == '':
+                            device = loudest_device
+                        else:
+                            print("bzzzt")
                 else:
-                    self.robot._sensor_packet_1 = data
-            else:
-                if self.robot._sensor_packet_1 is not None:
-                    new_sensor_data = dot_sensor_decode(self.robot._sensor_packet_1)
-                    new_sensor_data.update(dash_sensor_decode(self.robot._sensor_packet_1, data))
-                    self.robot._sensor_packet_1 = None
+                    device = loudest_device
+                    print("found %d suitable robots, choosing the best signal" % (len(devices)))
 
-            if new_sensor_data is not None:
-                self.robot._parse_sensors(new_sensor_data)
-                if hasattr(self.delegate, 'on_sensors'):
-                    wwMain.thread_local_data.in_on_sensors = True
-                    if inspect.iscoroutinefunction(self.delegate.on_sensors):
-                        await self.delegate.on_sensors(self.robot)
-                    elif callable(self.delegate.on_sensors):
-                        self.delegate.on_sensors(self.robot)
-                    wwMain.thread_local_data.in_on_sensors = False
+            if device is None:
+                print("no suitable robots found!")
+                self.stop()
+                return
 
-            # actually send the commands which have queued up via stage_foo()
-            self.robot.send_staged()
+            self.robot = robot_from_device(device)
+            # Create a wrapper to call async sendJson from sync context
+            def sync_sendJson(json_dict):
+                # NOTE: The caller does not block for this to complete.
+                asyncio.run_coroutine_threadsafe(self.sendJson(json_dict), self.bleak_loop) # type: ignore
+            self.robot._sendJson = sync_sendJson
 
-        # Start notifications
-        await self.client.start_notify(CHAR_UUID_SENSOR0, on_data_sensor)
-        if self.robot.expect_sensor_packet_2:
-            await self.client.start_notify(CHAR_UUID_SENSOR1, on_data_sensor)
+            print('Connecting to ' + self.robot.robot_type_name + ' "%s"' % (self.robot.name))
 
-        print('Connected to \'%s\'!' % (self.robot.name))
+            # Connect to the device
+            self.client = BleakClient(device[0].address)
+            await self.client.connect()
 
-        if hasattr(self.delegate, 'on_connect'):
-            wwMain.thread_local_data.in_on_connect = True
-            if inspect.iscoroutinefunction(self.delegate.on_connect):
-                await self.delegate.on_connect(self.robot)
-            elif callable(self.delegate.on_connect):
-                self.delegate.on_connect(self.robot)
-            wwMain.thread_local_data.in_on_connect = False
+            await self._send_connection_interval_renegotiation()
 
-        try:
-            while True:
-                await asyncio.sleep(1)
+            # Setup notification callbacks
+            async def on_data_sensor(sender: BleakGATTCharacteristic, data: bytearray):
+                assert self.robot is not None
+                new_sensor_data = None
+    
+                if uuid.UUID(sender.uuid) == CHAR_UUID_SENSOR0:
+                    if not self.robot.expect_sensor_packet_2:
+                        new_sensor_data = dot_sensor_decode(data)
+                    else:
+                        self.robot._sensor_packet_1 = data
+                else:
+                    if self.robot._sensor_packet_1 is not None:
+                        new_sensor_data = dot_sensor_decode(self.robot._sensor_packet_1)
+                        new_sensor_data.update(dash_sensor_decode(self.robot._sensor_packet_1, data))
+                        self.robot._sensor_packet_1 = None
+
+                if new_sensor_data is not None:
+                    self.robot._parse_sensors(new_sensor_data)
+                    if hasattr(self.delegate, 'on_sensors'):
+                        wwMain.thread_local_data.in_on_sensors = True
+                        if inspect.iscoroutinefunction(self.delegate.on_sensors):
+                            await self.delegate.on_sensors(self.robot)
+                        elif callable(self.delegate.on_sensors):
+                            self.delegate.on_sensors(self.robot)
+                        wwMain.thread_local_data.in_on_sensors = False
+
+                # actually send the commands which have queued up via stage_foo()
+                self.robot.send_staged()
+
+            # Start notifications
+            await self.client.start_notify(CHAR_UUID_SENSOR0, on_data_sensor)
+            if self.robot.expect_sensor_packet_2:
+                await self.client.start_notify(CHAR_UUID_SENSOR1, on_data_sensor)
+
+            print('Connected to \'%s\'!' % (self.robot.name))
+
+            if hasattr(self.delegate, 'on_connect'):
+                wwMain.thread_local_data.in_on_connect = True
+                if inspect.iscoroutinefunction(self.delegate.on_connect):
+                    await self.delegate.on_connect(self.robot)
+                elif callable(self.delegate.on_connect):
+                    self.delegate.on_connect(self.robot)
+                wwMain.thread_local_data.in_on_connect = False
+
+            try:
+                while True:
+                    await asyncio.sleep(1)
+            finally:
+                await self.client.stop_notify(CHAR_UUID_SENSOR0)
+                if self.robot.expect_sensor_packet_2:
+                    await self.client.stop_notify(CHAR_UUID_SENSOR1)
+                await self.client.disconnect()
         except (KeyboardInterrupt, asyncio.CancelledError):
             sys.stdout.write('Stopping...\n')
             sys.stdout.flush()
-    
-        finally:
-            await self.client.stop_notify(CHAR_UUID_SENSOR0)
-            if self.robot.expect_sensor_packet_2:
-                await self.client.stop_notify(CHAR_UUID_SENSOR1)
-            await self.client.disconnect()
+        WWBTLEManager.bleak_loop = None
+        WWBTLEManager.connect_task = None
 
     async def _send_connection_interval_renegotiation(self):
         assert self.client is not None
@@ -326,24 +333,21 @@ class WWBTLEManager:
         for packet in packets:
             await self.client.write_gatt_char(CHAR_UUID_CMD, packet)
 
-    def run(self):
+    def run(self, loop: asyncio.AbstractEventLoop | None = None):
         # Run the async scan_and_connect method using asyncio
-        asyncio.run(self.scan_and_connect())
+        if loop is None:
+            asyncio.run(self.scan_and_connect())
+        else:
+            asyncio.run_coroutine_threadsafe(self.scan_and_connect(), loop)
 
     @classmethod
     def stop(cls):
-        if cls.bleak_loop is not None:
+        if cls.bleak_loop is not None and cls.connect_task is not None:
             bleak_loop = cls.bleak_loop
+            connect_task = cls.connect_task
             async def stop_task():
-                tasks = [t for t in asyncio.all_tasks(bleak_loop) if t is not asyncio.current_task()]
-                for task in tasks:
-                    task.cancel()
+                connect_task.cancel()
 
-            future = asyncio.run_coroutine_threadsafe(stop_task(), bleak_loop)
-            try:
-                # Inside event loop, so don't block waiting for cancel to complete.
-                pass
-            except RuntimeError:
-                # Not inside event loop
-                # Wait for tasks to be canceled.
-                future.result()
+            asyncio.run_coroutine_threadsafe(stop_task(), bleak_loop)
+            cls.connect_task = None
+            cls.bleak_loop = None
