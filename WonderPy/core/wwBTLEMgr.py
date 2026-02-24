@@ -169,6 +169,9 @@ class WWBTLEManager:
                                 devices[str(scanned_device)] = (scanned_device, advertisement_data)
                             else:
                                 devices_no[str(scanned_device)] = (scanned_device, advertisement_data)
+                    except (KeyboardInterrupt, asyncio.CancelledError):
+                        # Propagate this up so it cancels the scan.
+                        raise
                     except Exception:
                         # If we can't connect, skip this device for now
                         continue
