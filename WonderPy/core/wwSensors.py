@@ -10,6 +10,8 @@ from WonderPy.components.wwSensorDistance import WWSensorDistance
 from WonderPy.components.wwSensorBeacon import WWSensorBeacon,WWSensorBeaconV2
 from WonderPy.components.wwSensorWheel import WWSensorWheel
 from WonderPy.components.wwSensorGyroscope import WWSensorGyroscope
+from WonderPy.components.wwSensorMicrophone import WWSensorMicrophone
+from WonderPy.components.wwSensorFlag import WWSensorFlag
 
 _rc = WWRobotConstants.RobotComponent
 
@@ -43,6 +45,9 @@ class WWSensors:
         self._ping                        = WWSensorPing         (robot)
         self._speaker                     = WWSensorMedia        (robot)
         self._voice                       = None
+        self._microphone                  = WWSensorMicrophone   (robot)
+        self._picked_up                   = WWSensorFlag         (robot)
+        self._bump_stall                  = WWSensorFlag         (robot)
 
         # dash & cue
         self._beacon                      = WWSensorBeacon       (robot)
@@ -77,7 +82,22 @@ class WWSensors:
             _rc.WW_SENSOR_GYROSCOPE                   : self._gyroscope,
             _rc.WW_SENSOR_PING_RESPONSE               : self._ping,
             _rc.WW_SENSOR_SOUND_PLAYING               : self._speaker,
+            _rc.WW_SENSOR_MICROPHONE                  : self._microphone,
+            _rc.WW_SENSOR_PICKED_UP                   : self._picked_up,
+            _rc.WW_SENSOR_BUMP_STALL                  : self._bump_stall,
         }
+
+    @property
+    def microphone(self):
+        return self._microphone
+
+    @property
+    def picked_up(self):
+        return self._picked_up
+
+    @property
+    def bump_stall(self):
+        return self._bump_stall
 
     @property
     def accelerometer(self):

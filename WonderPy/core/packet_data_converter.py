@@ -425,7 +425,9 @@ def _encode_speaker(args: dict[str, Any]) -> bytes:
     if file_name == _rcv.WW_COMMAND_VALUE_STOP_SOUND:
         return b'\x1a'
     else:
-        return b'\x18' + file_name.encode('ascii')
+        # Wonder Workshop firmware expects a fixed 14-byte string field for the sound name
+        padded_name = file_name.encode('ascii')[:14].ljust(14, b'\x00')
+        return b'\x18' + padded_name
     
 
 def _encode_animation(args: dict[str, Any]) -> bytes:
@@ -438,7 +440,30 @@ def _encode_animation(args: dict[str, Any]) -> bytes:
     if file_name == _rcv.WW_COMMAND_VALUE_STOP_SOUND:
         return b'+'
     else:
-        return b'&' + file_name.encode('ascii')
+        # Wonder Workshop firmware expects a fixed 14-byte string field for the animation name
+        padded_name = file_name.encode('ascii')[:14].ljust(14, b'\x00')
+        return b'&' + padded_name
+
+
+def _encode_eyering(args: dict[str, Any]) -> list[bytes]:
+    res = []
+    brightness = int(_clamp(args.get(_rcv.WW_COMMAND_VALUE_COLOR_BRIGHTNESS, 1.0), 0.0, 1.0) * 255.0)
+    anim = args.get(_rcv.WW_COMMAND_VALUE_EYE_RING_ANIMATION, 0)
+    order_index = args.get(_rcv.WW_COMMAND_VALUE_ORDER_INDEX)
+
+    if order_index is not None and isinstance(order_index, (list, tuple)):
+        bitmap = 0
+        for i, lit in enumerate(order_index):
+            if lit:
+                bitmap |= (1 << (i % 12))
+        res.append(b'\x09' + bitmap.to_bytes(2, 'big'))
+    elif anim:
+        # Preset animation: 1=blink, 2=swirl, 3=wink
+        res.append(bytes([0x08, int(anim), brightness]))
+    else:
+        res.append(b'\x09\x00\x00')
+
+    return res
     
 
 def _encode_linear_angular(args: dict[str, Any]) -> bytes:
@@ -552,12 +577,14 @@ def encode_cmd(dict_data: dict[str, Any]) -> list[bytes]:
             msg_bytes.append(b"'")
         elif key == _rc.WW_COMMAND_BODY_LINEAR_ANGULAR:
             msg_bytes.append(_encode_linear_angular(val))
-        elif key in {_rc.WW_COMMAND_EYE_RING, _rc.WW_COMMAND_HEAD_PAN_VOLTAGE, _rc.WW_COMMAND_HEAD_TILT_VOLTAGE,
+        elif key == _rc.WW_COMMAND_EYE_RING:
+            msg_bytes.extend(_encode_eyering(val))
+        elif key in {_rc.WW_COMMAND_HEAD_PAN_VOLTAGE, _rc.WW_COMMAND_HEAD_TILT_VOLTAGE,
                       _rc.WW_COMMAND_LAUNCHER_FLING, _rc.WW_COMMAND_LAUNCHER_RELOAD, _rc.WW_COMMAND_LED_MESSAGE,
                       _rc.WW_COMMAND_BODY_WHEELS, _rc.WW_COMMAND_SET_PING}:
-            raise NotImplementedError(f'Command {_CMD_NAME_DICT[key]} not yet implemented.')
+            print(f"Warning: Command {_CMD_NAME_DICT[key]} not yet implemented, skipping.")
         else:
-            raise NotImplementedError(f'Command {_CMD_NAME_DICT[key]} not yet implemented.')
+            print(f"Warning: Unknown command key {key}, skipping.")
         
         for msg in msg_bytes:
             fit = False

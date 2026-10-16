@@ -25,5 +25,6 @@ class WWCommands:
         self.ping       = WWCommandPing     (robot)
         self.body       = WWCommandBody     (robot)
         self.RGB        = WWCommandRGB      (robot)
+        self.rgb        = self.RGB
         self.accessory  = WWCommandAccessory(robot)
         self.new        = wwCommandNew(robot)

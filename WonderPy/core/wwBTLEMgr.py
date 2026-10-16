@@ -64,6 +64,13 @@ class WWBTLEManager:
             parser = argparse.ArgumentParser(description='Options.')
             WWBTLEManager.setup_argument_parser(parser)
             arguments = parser.parse_args()
+        elif isinstance(arguments, (list, tuple)):
+            parser = argparse.ArgumentParser(description='Options.')
+            WWBTLEManager.setup_argument_parser(parser)
+            arg_list = list(arguments)
+            if arg_list and (arg_list[0].endswith('.py') or arg_list[0] == sys.argv[0]):
+                arg_list = arg_list[1:]
+            arguments = parser.parse_args(arg_list)
 
         self._args = arguments
 
@@ -249,7 +256,8 @@ class WWBTLEManager:
             # Create a wrapper to call async sendJson from sync context
             def sync_sendJson(json_dict):
                 # NOTE: The caller does not block for this to complete.
-                asyncio.run_coroutine_threadsafe(self.sendJson(json_dict), self.bleak_loop) # type: ignore
+                if self.bleak_loop is not None and self.bleak_loop.is_running():
+                    asyncio.run_coroutine_threadsafe(self.sendJson(json_dict), self.bleak_loop) # type: ignore
             self.robot._sendJson = sync_sendJson
 
             print('Connecting to ' + self.robot.robot_type_name + ' "%s"' % (self.robot.name))
@@ -258,7 +266,8 @@ class WWBTLEManager:
             self.client = BleakClient(device[0].address)
             await self.client.connect()
 
-            await self._send_connection_interval_renegotiation()
+            # Skipping renegotiation on macOS BLE / Bleak as Dot firmware stalls after 10 packets
+            # await self._send_connection_interval_renegotiation()
 
             # Setup notification callbacks
             async def on_data_sensor(sender: BleakGATTCharacteristic, data: bytearray):
@@ -308,10 +317,14 @@ class WWBTLEManager:
                 while True:
                     await asyncio.sleep(1)
             finally:
-                await self.client.stop_notify(CHAR_UUID_SENSOR0)
-                if self.robot.expect_sensor_packet_2:
-                    await self.client.stop_notify(CHAR_UUID_SENSOR1)
-                await self.client.disconnect()
+                try:
+                    if self.client and self.client.is_connected:
+                        await self.client.stop_notify(CHAR_UUID_SENSOR0)
+                        if self.robot.expect_sensor_packet_2:
+                            await self.client.stop_notify(CHAR_UUID_SENSOR1)
+                        await self.client.disconnect()
+                except Exception:
+                    pass
         except (KeyboardInterrupt, asyncio.CancelledError):
             sys.stdout.write('Stopping...\n')
             sys.stdout.flush()
@@ -350,7 +363,15 @@ class WWBTLEManager:
             connect_task = cls.connect_task
             async def stop_task():
                 connect_task.cancel()
+                try:
+                    await connect_task
+                except (asyncio.CancelledError, Exception):
+                    pass
 
-            asyncio.run_coroutine_threadsafe(stop_task(), bleak_loop)
+            fut = asyncio.run_coroutine_threadsafe(stop_task(), bleak_loop)
+            try:
+                fut.result(timeout=4.0)
+            except Exception:
+                pass
             cls.connect_task = None
             cls.bleak_loop = None
